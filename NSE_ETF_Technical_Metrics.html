@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSE ETF — Technical Metrics</title>
+<style>
+
+:root {
+  --bg:       #0f1117;
+  --surface:  #1a1d2e;
+  --border:   #2e3250;
+  --text:     #e2e8f0;
+  --muted:    #8892a4;
+  --accent:   #4f8ef7;
+  --bull:     #22c55e;
+  --bear:     #ef4444;
+  --warn:     #f59e0b;
+  --neut:     #94a3b8;
+  --rs-hi:    #14532d;
+  --rs-lo:    #7f1d1d;
+  --rs-mid:   #1e3a5f;
+  --row-alt:  #151827;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  min-height: 100vh;
+}
+header {
+  background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header h1 { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: .3px; }
+header small { color: var(--muted); font-size: 11px; }
+
+/* Verdict Badge */
+.verdict-badge {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .5px;
+  position: relative;
+  cursor: help;
+}
+.verdict-badge.bull { background: rgba(34,197,94,.15); color: var(--bull); border: 1px solid var(--bull); }
+.verdict-badge.bear { background: rgba(239,68,68,.15); color: var(--bear); border: 1px solid var(--bear); }
+.verdict-badge.neut { background: rgba(148,163,184,.1); color: var(--neut); border: 1px solid var(--neut); }
+.verdict-badge::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: -30px;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: normal;
+  white-space: nowrap;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 100;
+}
+.verdict-badge:hover::after { opacity: 1; }
+
+/* Summary Cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  padding: 20px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.card .val { font-size: 26px; font-weight: 800; line-height: 1; margin-bottom: 4px; position: relative; z-index: 2; }
+.card .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; position: relative; z-index: 2; }
+.card .sub { font-size: 11px; color: var(--muted); margin-top: 2px; position: relative; z-index: 2; }
+.card-bg-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: var(--accent);
+  z-index: 1;
+}
+.card-bg-bar.bull { background: var(--bull); }
+.card-bg-bar.bear { background: var(--bear); }
+.card-bg-bar.warn { background: var(--warn); }
+.val.bull { color: var(--bull); }
+.val.bear { color: var(--bear); }
+.val.accent { color: var(--accent); }
+.val.warn { color: var(--warn); }
+
+/* Action Summaries */
+.action-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 28px 20px;
+}
+.action-card {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.action-card.bull-bg { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.3); color: #86efac; }
+.action-card.bear-bg { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #fca5a5; }
+
+/* Legend Panel */
+details.legend {
+  padding: 10px 28px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+details.legend summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+}
+.legend-content { margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Controls */
+.controls {
+  padding: 14px 28px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+#search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 340px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+#search:focus { border-color: var(--accent); }
+#sector-filter {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+#watchlist-filter {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  width: 150px;
+}
+.control-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.control-btn:hover { border-color: var(--accent); color: var(--accent); }
+#row-count { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+/* Breadth trend sparkline */
+.trend-sparkline {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.trend-sparkline-title { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+
+/* Column Toggle Panel */
+.col-toggle-panel {
+  position: fixed;
+  top: 56px;
+  right: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 200;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.col-toggle-panel.show { display: block; }
+.col-toggle-panel label { display: block; margin-bottom: 6px; font-size: 12px; cursor: pointer; }
+.col-toggle-panel label input { margin-right: 6px; }
+
+/* Clickable table elements */
+.clickable-symbol, .clickable-company {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.clickable-symbol:hover, .clickable-company:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Presets */
+.presets { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.preset-badge {
+  font-size: 11px;
+  background: var(--border);
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.preset-badge:hover { background: var(--accent); color: #fff; }
+.preset-badge.active { background: var(--accent); color: #fff; }
+.preset-divider { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+
+/* Table */
+.table-wrap {
+  contain: content;
+  overflow: auto;
+  max-height: calc(100vh - 260px);
+  margin: 0 28px 28px;
+  padding: 0;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  z-index: 2;
+  transition: background .15s;
+}
+thead th[title] { border-bottom: 1px dotted var(--muted); }
+thead th:hover { background: #252840; }
+thead th .sort-arrow { font-size: 10px; color: var(--muted); margin-left: 4px; }
+thead th.sort-asc .sort-arrow::after  { content: " ▲"; color: var(--accent); }
+thead th.sort-desc .sort-arrow::after { content: " ▼"; color: var(--accent); }
+thead th:not(.sort-asc):not(.sort-desc) .sort-arrow::after { content: " ⇅"; }
+thead th.sort-hi .sort-arrow::before { content: "(Hi)"; color: var(--bear); font-size: 10px; margin-right: 2px;}
+thead th.sort-lo .sort-arrow::before { content: "(Lo)"; color: var(--bull); font-size: 10px; margin-right: 2px;}
+tbody tr { transition: background .1s; }
+tbody tr:nth-child(even) { background: var(--row-alt); }
+tbody tr:hover { background: #1e2240 !important; }
+tbody td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+/* Alignment stripe & Watchlist highlight */
+tbody tr.aligned-row td:first-child { border-left: 3px solid var(--bull); }
+tbody tr.not-aligned-row td:first-child { border-left: 3px solid var(--muted); }
+tbody tr.watchlist-row td:first-child { border-left: 3px solid var(--accent); }
+
+/* Frozen columns */
+th.frozen, td.frozen {
+  position: sticky;
+  z-index: 1;
+}
+thead th.frozen { z-index: 4; background: var(--surface); }
+tbody tr:nth-child(odd)  td.frozen { background: var(--bg); }
+tbody tr:nth-child(even) td.frozen { background: var(--row-alt); }
+tbody tr:hover td.frozen { background: #1e2240 !important; }
+td.frozen-last, th.frozen-last { border-right: 2px solid var(--accent) !important; }
+
+/* Combined Name/Symbol */
+.company-name { font-weight: 700; color: var(--text); }
+.company-sym { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* Sector Heatmap Bar */
+.sector-bar-bg { width: 100px; height: 6px; background: var(--row-alt); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 8px; }
+.sector-bar-fg { height: 100%; min-width: 2px; }
+
+/* Multi-period returns */
+.returns-cell { display: flex; gap: 4px; align-items: center; }
+.ret-badge { padding: 2px 4px; border-radius: 3px; font-size: 10px; font-weight: 600; min-width: 40px; text-align: center; }
+
+/* Cell colour classes */
+.c-bull  { background: rgba(34,197,94,.18);  color: #4ade80; font-weight: 600; }
+.c-bear  { background: rgba(239,68,68,.18);  color: #f87171; font-weight: 600; }
+.c-warn  { background: rgba(245,158,11,.18); color: #fbbf24; font-weight: 600; }
+.c-pos   { color: var(--bull); }
+.c-neg   { color: var(--bear); }
+.badge   { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: .3px; }
+.badge-yes { background: rgba(34,197,94,.15); color: var(--bull); border: 1px solid rgba(34,197,94,.3); }
+.badge-no  { background: rgba(148,163,184,.08); color: var(--muted); border: 1px solid var(--border); }
+.rs-badge  { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 800; }
+.rs-hi  { background: var(--rs-hi);  color: #86efac; }
+.rs-mid { background: var(--rs-mid); color: #93c5fd; }
+.rs-lo  { background: var(--rs-lo);  color: #fca5a5; }
+
+/* MACD Badge */
+.macd-bull { color: var(--bull); font-weight: 700; }
+.macd-bear { color: var(--bear); font-weight: 700; }
+
+/* 52W Bar */
+.range-bar-wrap { position: relative; width: 60px; height: 6px; background: var(--border); border-radius: 3px; display: inline-block; vertical-align: middle; overflow: hidden; }
+.range-bar-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.3s; }
+.range-label { font-size: 9px; color: var(--muted); display: inline-block; vertical-align: middle; font-weight: 700; }
+
+footer  { padding: 14px 28px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); }
+
+/* Drawer Panel */
+.drawer { position: fixed; top: 0; right: -75%; width: 75%; height: 100%; background: var(--surface); border-left: 2px solid var(--border); box-shadow: -10px 0 30px rgba(0,0,0,0.6); transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1000; display: flex; flex-direction: column; }
+@media (max-width: 768px) { .drawer { width: 100%; right: -100%; } }
+.drawer.open { right: 0; }
+.drawer-header { background: #151827; padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.drawer-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.drawer-close { background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; padding: 4px; transition: color 0.15s; }
+.drawer-close:hover { color: var(--bear); }
+.drawer-body { flex: 1; background: #0d0f1a; padding: 0; margin: 0; overflow: hidden; }
+
+/* Clickable cells */
+tbody td.clickable-symbol { color: var(--accent); cursor: pointer; font-weight: 600; transition: color 0.15s, background-color 0.15s; }
+tbody td.clickable-symbol:hover { color: #3b82f6; text-decoration: underline; background-color: rgba(79, 142, 247, 0.1) !important; }
+tbody td.clickable-company { cursor: pointer; transition: color 0.15s, background-color 0.15s; }
+tbody td.clickable-company:hover { color: var(--accent); text-decoration: underline; background-color: rgba(79, 142, 247, 0.05) !important; }
+
+.narrative-section {
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.narrative-section h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.dq-banner {
+  margin: 16px 28px 0 28px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>NSE ETF — Technical Metrics</h1>
+    <small>Generated: 2026-06-18 22:07</small>
+  </div>
+  <span class="verdict-badge bear" data-tooltip="Verdict = BEARISH when Full Alignment &lt; 40%">BEARISH</span>
+</header>
+
+
+<!-- Breadth trend sparkline would go here, optionally embedded by JS -->
+<div id="trend-sparkline-container"></div>
+
+<!-- Executive Summary Block -->
+<div class="exec-summary" style="padding: 14px 28px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1.5;">
+  </div>
+
+<!-- Narrative Blocks -->
+
+<div class="cards">
+  <div class="card">
+    <div class="val accent">20</div>
+    <div class="lbl">Stocks Screened</div>
+    <div class="card-bg-bar" style="width: 100%;"></div>
+  </div>
+  <div class="card">
+    <div class="val bear">25.0%</div>
+    <div class="lbl">Full Alignment</div>
+    <div class="sub">5 stocks</div>
+    <div class="card-bg-bar bear" style="width: 25.0%;"></div>
+  </div>
+  <div class="card">
+    <div class="val accent">20.0%</div>
+    <div class="lbl">RS Leaders ≥ 80</div>
+    <div class="sub">4 stocks</div>
+    <div class="card-bg-bar" style="width: 20.0%;"></div>
+  </div>
+  <div class="card">
+    <div class="val bull">50.0%</div>
+    <div class="lbl">Above 200 DMA</div>
+    <div class="sub">10 stocks</div>
+    <div class="card-bg-bar bull" style="width: 50.0%;"></div>
+  </div>
+  <div class="card">
+    <div class="val bull">20.0%</div>
+    <div class="lbl">Near 52W High (&lt;5%)</div>
+    <div class="sub">4 stocks</div>
+    <div class="card-bg-bar bull" style="width: 20.0%;"></div>
+  </div>
+  <div class="card">
+    <div class="val accent">55.6</div>
+    <div class="lbl">Average RSI</div>
+    <div class="card-bg-bar " style="width: 55.6%;"></div>
+  </div>
+</div>
+
+<div class="action-panel">
+  <div class='action-card bull-bg'><strong>🚀 Momentum Leaders:</strong> <span class='clickable-symbol' onclick="openChartDrawer('SBISILVER', 'https://s.tradingview.com/widgetembed/?symbol=NSE:SBISILVER&interval=D&theme=dark&style=1&timezone=exchange', false)">SBISILVER</span>, <span class='clickable-symbol' onclick="openChartDrawer('HDFCGOLD', 'https://s.tradingview.com/widgetembed/?symbol=NSE:HDFCGOLD&interval=D&theme=dark&style=1&timezone=exchange', false)">HDFCGOLD</span>, <span class='clickable-symbol' onclick="openChartDrawer('GOLDBEES', 'https://s.tradingview.com/widgetembed/?symbol=NSE:GOLDBEES&interval=D&theme=dark&style=1&timezone=exchange', false)">GOLDBEES</span></div><div class='action-card bull-bg'><strong>📉 Pullback Candidates:</strong> <span class='clickable-symbol' onclick="openChartDrawer('HDFCGOLD', 'https://s.tradingview.com/widgetembed/?symbol=NSE:HDFCGOLD&interval=D&theme=dark&style=1&timezone=exchange', false)">HDFCGOLD</span></div><div class='action-card bull-bg'><strong>🔥 Breakout Watch:</strong> <span class='clickable-symbol' onclick="openChartDrawer('JUNIORBEES', 'https://s.tradingview.com/widgetembed/?symbol=NSE:JUNIORBEES&interval=D&theme=dark&style=1&timezone=exchange', false)">JUNIORBEES</span></div>
+</div>
+
+<details class="legend">
+  <summary>Methodology &amp; Column Key</summary>
+  <div style="margin-top: 8px; font-size: 11px; margin-bottom: 12px; max-width: 800px; color: var(--muted); border-bottom: 1px dashed var(--border); padding-bottom: 8px;">
+    <strong>Methodology:</strong> "Full Alignment" strictly requires 20 DMA &gt; 50 DMA &gt; 200 DMA. "Risk Profile" is determined dynamically: High Risk if ATR% &gt; 4% or Beta &gt; 1.5; Low Risk if ATR% &lt; 2% and Beta &lt; 1.0; Medium otherwise.
+  </div>
+  <div class="legend-content">
+    <div><strong>RS Rtg:</strong> 1–99 relative strength rank vs universe</div>
+    <div><strong>Full Alignment:</strong> 20 DMA &gt; 50 DMA &gt; 200 DMA</div>
+    <div><strong>Returns:</strong> Historical returns (1W/1M/3M/1Yr)</div>
+    <div><strong>Dist 52W H/L:</strong> % Distance from 52W High (Red) and 52W Low (Green)</div>
+    <div><strong>Trend Score:</strong> Momentum score out of 3 (🟢🟢🟢)</div>
+    <div><strong>MACD:</strong> Crossover indicator (▲ Bull, ▼ Bear)</div>
+    <div><strong>Avg Vol Spike:</strong> Volume spike vs 50-day average</div>
+    <div><strong>ATR %:</strong> Average True Range / LTP * 100</div>
+  </div>
+</details>
+
+<div class="tabs">
+  <button id="tab-screener" class="tab-btn active" onclick="switchTab('screener')">Screener View</button>
+  <button id="tab-heatmap" class="tab-btn" onclick="switchTab('heatmap')">Stock Heatmap</button>
+  <button id="tab-sector" class="tab-btn" onclick="switchTab('sector')">Sector Analysis</button>
+</div>
+
+<div class="controls" id="controls-screener">
+  <label for="search" class="sr-only">Search symbol or company</label>
+  <input id="search" type="text" autocomplete="off" placeholder="🔍 Search symbol or company...">
+  
+  <label for="sector-filter" class="sr-only">Filter by Sector</label>
+  <select id="sector-filter">
+    <option value="">All Sectors</option>
+  </select>
+
+  <label for="index-filter" class="sr-only">Index Filter</label>
+  <select id="index-filter">
+    <option value="">Predefined Watchlists</option>
+  </select>
+
+  <label for="watchlist-filter" class="sr-only">Watchlist CSV</label>
+  <input id="watchlist-filter" type="text" autocomplete="off" placeholder="Watchlist (AAPL, TSLA)">
+
+  <div class="presets" id="preset-bar">
+    <span class="preset-badge active" data-preset="Overview" onclick="applyPreset('Overview')">📊 Overview</span>
+    <span class="preset-badge" data-preset="Momentum" onclick="applyPreset('Momentum')">🚀 Momentum</span>
+    <span class="preset-badge" data-preset="Oscillators" onclick="applyPreset('Oscillators')">📈 Oscillators</span>
+    <span class="preset-badge" data-preset="Risk" onclick="applyPreset('Risk')">🛡️ Risk</span>
+    <span class="preset-badge" data-preset="MA" onclick="applyPreset('MA')">〰️ Moving Avg</span>
+    <span class="preset-badge" data-preset="All" onclick="applyPreset('All')">🔓 All Columns</span>
+    <span class="preset-divider"></span>
+    <span class="preset-badge" data-preset="IBD" onclick="applyPreset('IBD')">IBD Style</span>
+    <span class="preset-badge" data-preset="Pullback" onclick="applyPreset('Pullback')">Pullback</span>
+    <span class="preset-badge" data-preset="Clear" onclick="applyPreset('Clear')">Clear</span>
+  </div>
+
+  <button class="control-btn" onclick="toggleColPanel()" style="margin-left: auto;">⚙️ Columns</button>
+  <button class="control-btn" onclick="exportCSV()">⬇ Export CSV</button>
+  <span id="row-count"></span>
+</div>
+
+<div class="col-toggle-panel" id="col-toggle-panel"></div>
+
+<div class="table-wrap" id="wrap-screener">
+  <table id="tbl">
+    <thead id="tbl-head"></thead>
+    <tbody id="tbl-body"></tbody>
+  </table>
+</div>
+
+<div class="table-wrap" id="wrap-sector" style="display: none;">
+  
+  <table id="tbl-sector">
+    <thead id="tbl-head-sector"></thead>
+    <tbody id="tbl-body-sector"></tbody>
+  </table>
+</div>
+
+<div class="table-wrap" id="wrap-heatmap" style="display: none;">
+  <div id="stock-heatmap-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; padding: 20px;"></div>
+</div>
+
+<footer>
+  NSE ETF Technical Report &nbsp;|&nbsp; 2026-06-18 22:07
+</footer>
+
+<!-- Chart Drawer -->
+<div id="chart-drawer" class="drawer">
+  <div class="drawer-header">
+    <span id="drawer-symbol-title" class="drawer-title">Chart</span>
+    <button class="drawer-close" onclick="closeDrawer()">&times;</button>
+  </div>
+  <div class="drawer-body">
+    <iframe id="tv-chart-iframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+    <div id="nse-warning-container" style="display: none; padding: 40px 24px; text-align: center; height: 100%; flex-direction: column; justify-content: center; align-items: center; background: #0d0f1a;">
+       <div style="font-size: 56px; margin-bottom: 24px;">⚠️</div>
+       <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: var(--text);">Embedding Restricted</h3>
+       <p style="color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 340px; margin-bottom: 28px;">
+         TradingView does not allow embedding this chart.<br><br>
+       </p>
+       <button id="nse-warning-btn" class="control-btn" style="background: var(--accent); color: white; padding: 10px 24px; border: none; font-weight: bold; border-radius: 6px; cursor: pointer;">Open in TradingView</button>
+    </div>
+  </div>
+</div>
+
+<!-- CAGR Chart Modal -->
+<div id="cagr-drawer" class="drawer">
+  <div class="drawer-header">
+    <span id="cagr-drawer-title" class="drawer-title">Rolling CAGR</span>
+    <button class="drawer-close" onclick="closeCagrDrawer()">&times;</button>
+  </div>
+  <div class="drawer-body" style="padding: 20px;">
+    <canvas id="cagrCanvas" style="width: 100%; height: 100%;"></canvas>
+  </div>
+</div>
+
+<script>
+const PROJECT_NAME = "NSE ETF";
+const EXCHANGE = "NSE";
+const BENCHMARK = "^NSEI";
+const GENERATED_DATE = "2026-06-18";
+const COLUMNS = ["Symbol", "Sector", "LTP", "Change(%)", "52W High", "52W Low", "Dist 52W H/L(%)", "Returns (1W/1M/3M/1Y)", "1M Spark", "CAGR (%)", "RS Rating", "Cross_RS", "5 DMA", "20 DMA", "50 DMA", "200 DMA", "Dist from 200 DMA(%)", "20 > 50", "50 > 200", "Full Alignment", "Trend_Score", "RSI", "MACD", "MACD_Signal", "MACD_Hist", "StochRSI_%K", "StochRSI_%D", "Vol Spike(%)", "BB_Upper", "BB_Lower", "SuperTrend", "ST_Direction", "ADX", "ATR %", "Risk Profile"];
+const DISPLAY_COLUMNS = ["Symbol", "Sector", "LTP", "Change(%)", "52W High", "52W Low", "Dist 52W H/L(%)", "Returns (1W/1M/3M/1Y)", "1M Spark", "CAGR (%)", "RS Rating", "Cross_RS", "5 DMA", "20 DMA", "50 DMA", "200 DMA", "Dist from 200 DMA(%)", "20 > 50", "50 > 200", "Full Alignment", "Trend_Score", "RSI", "MACD", "MACD_Signal", "MACD_Hist", "StochRSI_%K", "StochRSI_%D", "Vol Spike(%)", "BB_Upper", "BB_Lower", "SuperTrend", "ST_Direction", "ADX", "ATR %", "Risk Profile"];
+const EXPORT_COLUMNS = ["Symbol", "Sector", "LTP", "Change(%)", "52W High", "52W Low", "CAGR (%)", "RS Rating", "Cross_RS", "5 DMA", "20 DMA", "50 DMA", "200 DMA", "Dist from 200 DMA(%)", "20 > 50", "50 > 200", "Full Alignment", "Trend_Score", "RSI", "MACD", "MACD_Signal", "MACD_Hist", "StochRSI_%K", "StochRSI_%D", "Vol Spike(%)", "BB_Upper", "BB_Lower", "SuperTrend", "ST_Direction", "ADX", "ATR %", "Risk Profile"];
+const DATA    = [{"Symbol": "BANKBEES", "Sector": "Unknown", "LTP": 593.66, "Change(%)": 0.51, "52W High": 635.86, "52W Low": 520.9, "Dist 52W H/L(%)": [-6.64, 13.97], "Returns (1W/1M/3M/1Y)": [4.52, 7.51, 5.65, 3.19], "1M Spark": [553.13, 552.4, 559.62, 571.02, 569.05, 567.32, 567.32, 561.32, 553.51, 555.91, 559.67, 561.27, 563.08, 558.71, 569.3, 567.99, 569.24, 569.24, 589.6799926757812, 590.6199951171875, 593.6599731445312], "CAGR (%)": 11.32, "RS Rating": 58, "Cross_RS": null, "5 DMA": 582.49, "20 DMA": 567.5, "50 DMA": 569.08, "200 DMA": 588.44, "Dist from 200 DMA(%)": 0.89, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 1, "RSI": 70.08, "MACD": 5.55, "MACD_Signal": 1.66, "MACD_Hist": 3.89, "StochRSI_%K": 100.0, "StochRSI_%D": 99.51, "Vol Spike(%)": -0.34, "BB_Upper": 590.85, "BB_Lower": 544.14, "SuperTrend": 563.51, "ST_Direction": "UP", "ADX": 29.19, "macd_state": "BULL", "ATR %": 1.64, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:BANKBEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/BANKBEES/"}, {"Symbol": "BANKNIFTY1", "Sector": "Unknown", "LTP": 59.49, "Change(%)": 0.47, "52W High": 637.24, "52W Low": 52.12, "Dist 52W H/L(%)": [-90.66, 14.14], "Returns (1W/1M/3M/1Y)": [4.06, 7.38, 5.74, -89.68], "1M Spark": [55.43, 55.22, 56.15, 57.25, 57.09, 56.79, 56.79, 56.24, 55.64, 55.58, 56.03, 56.62, 56.42, 56.08, 57.09, 57.17, 57.13, 57.13, 59.06999969482422, 59.209999084472656, 59.4900016784668], "CAGR (%)": -29.79, "RS Rating": 6, "Cross_RS": null, "5 DMA": 58.41, "20 DMA": 56.91, "50 DMA": 57.08, "200 DMA": 400.12, "Dist from 200 DMA(%)": -85.13, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 50.18, "MACD": -1.33, "MACD_Signal": -2.6, "MACD_Hist": 1.27, "StochRSI_%K": 100.0, "StochRSI_%D": 99.59, "Vol Spike(%)": -74.69, "BB_Upper": 59.25, "BB_Lower": 54.57, "SuperTrend": 60.16, "ST_Direction": "DOWN", "ADX": 37.39, "macd_state": "BULL", "ATR %": 2.32, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:BANKNIFTY1&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/BANKNIFTY1/"}, {"Symbol": "CPSEETF", "Sector": "Unknown", "LTP": 98.39, "Change(%)": 1.0, "52W High": 108.81, "52W Low": 87.83, "Dist 52W H/L(%)": [-9.58, 12.02], "Returns (1W/1M/3M/1Y)": [0.72, -6.19, -2.63, 6.39], "1M Spark": [104.67, 104.68, 103.81, 103.95, 103.58, 103.99, 103.99, 101.69, 100.96, 100.31, 100.62, 101.02, 100.17, 100.14, 99.21, 97.69, 97.05, 97.05, 96.94999694824219, 97.41999816894531, 98.38999938964844], "CAGR (%)": 30.28, "RS Rating": 27, "Cross_RS": null, "5 DMA": 97.37, "20 DMA": 100.63, "50 DMA": 103.92, "200 DMA": 97.12, "Dist from 200 DMA(%)": 1.31, "20 > 50": false, "50 > 200": true, "Full Alignment": false, "Trend_Score": 2, "RSI": 33.03, "MACD": -1.94, "MACD_Signal": -1.7, "MACD_Hist": -0.23, "StochRSI_%K": 40.57, "StochRSI_%D": 15.93, "Vol Spike(%)": 176.26, "BB_Upper": 105.98, "BB_Lower": 95.28, "SuperTrend": 104.61, "ST_Direction": "DOWN", "ADX": 63.1, "macd_state": "BEAR", "ATR %": 2.44, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:CPSEETF&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/CPSEETF/"}, {"Symbol": "FMCGIETF", "Sector": "Unknown", "LTP": 53.0, "Change(%)": -0.23, "52W High": 61.0, "52W Low": 48.67, "Dist 52W H/L(%)": [-13.11, 8.9], "Returns (1W/1M/3M/1Y)": [1.03, -2.61, 2.44, -9.71], "1M Spark": [54.11, 53.83, 53.68, 53.7, 53.7, 53.57, 53.57, 52.65, 51.75, 52.19, 51.62, 51.72, 51.77, 51.47, 51.85, 52.46, 51.98, 52.35, 52.650001525878906, 53.119998931884766, 53.0], "CAGR (%)": 7.99, "RS Rating": 22, "Cross_RS": null, "5 DMA": 52.62, "20 DMA": 52.63, "50 DMA": 53.35, "200 DMA": 56.14, "Dist from 200 DMA(%)": -5.59, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 51.85, "MACD": -0.26, "MACD_Signal": -0.37, "MACD_Hist": 0.11, "StochRSI_%K": 98.19, "StochRSI_%D": 92.59, "Vol Spike(%)": -21.22, "BB_Upper": 54.29, "BB_Lower": 50.98, "SuperTrend": 54.72, "ST_Direction": "DOWN", "ADX": 28.33, "macd_state": "BULL", "ATR %": 1.81, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:FMCGIETF&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/FMCGIETF/"}, {"Symbol": "GOLDBEES", "Sector": "Unknown", "LTP": 123.75, "Change(%)": -0.31, "52W High": 146.53, "52W Low": 79.81, "Dist 52W H/L(%)": [-15.55, 55.06], "Returns (1W/1M/3M/1Y)": [2.15, -5.27, -2.73, 52.05], "1M Spark": [130.2, 130.74, 130.5, 130.51, 129.58, 129.04, 129.04, 128.65, 127.49, 128.67, 127.64, 128.5, 127.78, 124.16, 125.39, 121.15, 119.28, 119.28, 124.11000061035156, 124.13999938964844, 123.75], "CAGR (%)": 24.52, "RS Rating": 89, "Cross_RS": null, "5 DMA": 122.11, "20 DMA": 126.47, "50 DMA": 125.74, "200 DMA": 114.73, "Dist from 200 DMA(%)": 7.86, "20 > 50": true, "50 > 200": true, "Full Alignment": true, "Trend_Score": 3, "RSI": 45.18, "MACD": -1.19, "MACD_Signal": -0.67, "MACD_Hist": -0.52, "StochRSI_%K": 61.15, "StochRSI_%D": 40.7, "Vol Spike(%)": -38.44, "BB_Upper": 133.7, "BB_Lower": 119.24, "SuperTrend": 124.77, "ST_Direction": "DOWN", "ADX": 28.34, "macd_state": "BEAR", "ATR %": 2.33, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:GOLDBEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/GOLDBEES/"}, {"Symbol": "HDFCGOLD", "Sector": "Unknown", "LTP": 127.84, "Change(%)": -0.34, "52W High": 151.38, "52W Low": 82.37, "Dist 52W H/L(%)": [-15.55, 55.2], "Returns (1W/1M/3M/1Y)": [2.02, -5.21, -2.71, 52.06], "1M Spark": [134.56, 135.03, 134.8, 134.8, 133.94, 133.35, 133.35, 132.81, 131.76, 133.8, 131.93, 132.71, 132.01, 128.42, 129.49, 125.31, 123.24, 125.86, 128.17999267578125, 128.27999877929688, 127.83999633789062], "CAGR (%)": 34.43, "RS Rating": 94, "Cross_RS": null, "5 DMA": 126.68, "20 DMA": 130.85, "50 DMA": 129.96, "200 DMA": 118.5, "Dist from 200 DMA(%)": 7.89, "20 > 50": true, "50 > 200": true, "Full Alignment": true, "Trend_Score": 3, "RSI": 44.72, "MACD": -1.14, "MACD_Signal": -0.59, "MACD_Hist": -0.55, "StochRSI_%K": 55.39, "StochRSI_%D": 43.9, "Vol Spike(%)": -42.87, "BB_Upper": 137.87, "BB_Lower": 123.82, "SuperTrend": 130.41, "ST_Direction": "DOWN", "ADX": 33.5, "macd_state": "BEAR", "ATR %": 2.14, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:HDFCGOLD&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/HDFCGOLD/"}, {"Symbol": "HNGSNGBEES", "Sector": "Unknown", "LTP": 493.28, "Change(%)": 0.43, "52W High": 566.34, "52W Low": 378.12, "Dist 52W H/L(%)": [-12.9, 30.46], "Returns (1W/1M/3M/1Y)": [1.9, -9.51, -0.76, 28.81], "1M Spark": [536.76, 532.06, 534.25, 536.43, 529.18, 523.0, 523.0, 518.53, 511.96, 522.21, 512.14, 510.68, 501.73, 488.84, 498.66, 484.07, 481.23, 481.23, 496.3800048828125, 491.19000244140625, 493.2799987792969], "CAGR (%)": 6.92, "RS Rating": 78, "Cross_RS": null, "5 DMA": 488.66, "20 DMA": 508.5, "50 DMA": 522.16, "200 DMA": 517.99, "Dist from 200 DMA(%)": -4.77, "20 > 50": false, "50 > 200": true, "Full Alignment": false, "Trend_Score": 1, "RSI": 41.33, "MACD": -10.42, "MACD_Signal": -8.68, "MACD_Hist": -1.74, "StochRSI_%K": 64.65, "StochRSI_%D": 44.99, "Vol Spike(%)": -47.98, "BB_Upper": 545.37, "BB_Lower": 471.63, "SuperTrend": 528.7, "ST_Direction": "DOWN", "ADX": 21.96, "macd_state": "BEAR", "ATR %": 3.19, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:HNGSNGBEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/HNGSNGBEES/"}, {"Symbol": "INFRABEES", "Sector": "Unknown", "LTP": 977.7, "Change(%)": 0.65, "52W High": 1008.86, "52W Low": 885.06, "Dist 52W H/L(%)": [-3.09, 10.47], "Returns (1W/1M/3M/1Y)": [4.36, 2.46, 8.32, 4.91], "1M Spark": [962.92, 965.27, 964.22, 973.79, 970.01, 978.73, 978.73, 965.81, 954.62, 953.78, 953.54, 952.22, 948.64, 940.01, 943.73, 936.87, 930.67, 930.67, 965.97998046875, 971.3900146484375, 977.7000122070312], "CAGR (%)": 16.48, "RS Rating": 63, "Cross_RS": null, "5 DMA": 955.28, "20 DMA": 957.82, "50 DMA": 958.94, "200 DMA": 960.04, "Dist from 200 DMA(%)": 1.84, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 1, "RSI": 61.25, "MACD": -0.18, "MACD_Signal": -2.35, "MACD_Hist": 2.16, "StochRSI_%K": 94.38, "StochRSI_%D": 61.48, "Vol Spike(%)": -28.39, "BB_Upper": 989.19, "BB_Lower": 926.45, "SuperTrend": 930.94, "ST_Direction": "UP", "ADX": 40.13, "macd_state": "BULL", "ATR %": 1.51, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:INFRABEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/INFRABEES/"}, {"Symbol": "IT", "Sector": "Unknown", "LTP": 31.98, "Change(%)": 1.2, "52W High": 43.17, "52W Low": 30.23, "Dist 52W H/L(%)": [-25.92, 5.79], "Returns (1W/1M/3M/1Y)": [2.21, -1.11, -0.22, -23.36], "1M Spark": [32.18, 31.99, 31.84, 32.07, 31.99, 32.03, 32.03, 32.17, 33.05, 34.42, 32.57, 32.49, 32.07, 31.77, 31.55, 31.29, 30.86, 30.86, 31.15999984741211, 31.600000381469727, 31.979999542236328], "CAGR (%)": 2.2, "RS Rating": 16, "Cross_RS": null, "5 DMA": 31.29, "20 DMA": 31.99, "50 DMA": 32.47, "200 DMA": 37.06, "Dist from 200 DMA(%)": -13.71, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 50.26, "MACD": -0.25, "MACD_Signal": -0.22, "MACD_Hist": -0.03, "StochRSI_%K": 25.55, "StochRSI_%D": 13.95, "Vol Spike(%)": 73.48, "BB_Upper": 33.57, "BB_Lower": 30.41, "SuperTrend": 33.81, "ST_Direction": "DOWN", "ADX": 17.41, "macd_state": "BEAR", "ATR %": 2.94, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:IT&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/IT/"}, {"Symbol": "ITBEES", "Sector": "Unknown", "LTP": 31.9, "Change(%)": 0.57, "52W High": 43.29, "52W Low": 30.3, "Dist 52W H/L(%)": [-26.31, 5.28], "Returns (1W/1M/3M/1Y)": [1.53, -1.69, -0.31, -23.79], "1M Spark": [32.28, 32.08, 32.02, 32.15, 32.09, 32.06, 32.06, 32.27, 33.13, 34.53, 32.64, 32.56, 32.25, 31.73, 31.68, 31.42, 30.88, 30.88, 31.190000534057617, 31.719999313354492, 31.899999618530273], "CAGR (%)": 1.9, "RS Rating": 11, "Cross_RS": null, "5 DMA": 31.31, "20 DMA": 32.06, "50 DMA": 32.54, "200 DMA": 37.16, "Dist from 200 DMA(%)": -14.16, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 48.92, "MACD": -0.26, "MACD_Signal": -0.22, "MACD_Hist": -0.04, "StochRSI_%K": 24.75, "StochRSI_%D": 13.91, "Vol Spike(%)": -37.11, "BB_Upper": 33.67, "BB_Lower": 30.45, "SuperTrend": 34.31, "ST_Direction": "DOWN", "ADX": 17.52, "macd_state": "BEAR", "ATR %": 3.01, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:ITBEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/ITBEES/"}, {"Symbol": "JUNIORBEES", "Sector": "Unknown", "LTP": 779.84, "Change(%)": 0.65, "52W High": 779.84, "52W Low": 651.9, "Dist 52W H/L(%)": [0.0, 19.63], "Returns (1W/1M/3M/1Y)": [4.45, 4.7, 12.42, 7.79], "1M Spark": [747.49, 749.58, 753.36, 764.8, 765.68, 775.11, 775.11, 767.86, 755.2, 757.31, 753.78, 756.08, 757.76, 744.88, 755.35, 746.62, 738.48, 738.48, 773.4199829101562, 774.780029296875, 779.8400268554688], "CAGR (%)": 14.12, "RS Rating": 73, "Cross_RS": null, "5 DMA": 761.0, "20 DMA": 759.17, "50 DMA": 754.38, "200 DMA": 738.33, "Dist from 200 DMA(%)": 5.62, "20 > 50": true, "50 > 200": true, "Full Alignment": true, "Trend_Score": 3, "RSI": 61.87, "MACD": 3.73, "MACD_Signal": 1.97, "MACD_Hist": 1.76, "StochRSI_%K": 87.68, "StochRSI_%D": 56.27, "Vol Spike(%)": 13.07, "BB_Upper": 784.09, "BB_Lower": 734.25, "SuperTrend": 734.04, "ST_Direction": "UP", "ADX": 24.65, "macd_state": "BULL", "ATR %": 2.06, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:JUNIORBEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/JUNIORBEES/"}, {"Symbol": "NIFTYBEES", "Sector": "Unknown", "LTP": 273.11, "Change(%)": 0.53, "52W High": 297.55, "52W Low": 253.44, "Dist 52W H/L(%)": [-8.21, 7.76], "Returns (1W/1M/3M/1Y)": [3.81, 2.06, 2.99, -2.09], "1M Spark": [268.05, 268.21, 269.1, 271.99, 270.83, 270.94, 270.94, 267.78, 265.52, 266.02, 265.55, 265.6, 265.36, 262.56, 263.88, 263.08, 262.63, 262.63, 270.6300048828125, 271.6700134277344, 273.1099853515625], "CAGR (%)": 10.1, "RS Rating": 47, "Cross_RS": null, "5 DMA": 268.13, "20 DMA": 267.4, "50 DMA": 269.96, "200 DMA": 281.71, "Dist from 200 DMA(%)": -3.05, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 62.51, "MACD": -0.21, "MACD_Signal": -1.11, "MACD_Hist": 0.91, "StochRSI_%K": 100.0, "StochRSI_%D": 70.16, "Vol Spike(%)": 1.36, "BB_Upper": 274.5, "BB_Lower": 260.31, "SuperTrend": 262.0, "ST_Direction": "UP", "ADX": 32.68, "macd_state": "BULL", "ATR %": 1.26, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:NIFTYBEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/NIFTYBEES/"}, {"Symbol": "NIFTYBETA", "Sector": "Unknown", "LTP": 265.59, "Change(%)": 0.4, "52W High": 289.61, "52W Low": 246.56, "Dist 52W H/L(%)": [-8.29, 7.72], "Returns (1W/1M/3M/1Y)": [3.72, 1.94, 2.99, null], "1M Spark": [261.03, 260.86, 262.02, 265.13, 263.69, 263.34, 263.34, 260.32, 258.49, 259.09, 258.52, 258.84, 258.01, 255.43, 256.87, 256.06, 255.97, 260.79, 263.2200012207031, 264.5400085449219, 265.5899963378906], "CAGR (%)": -14.15, "RS Rating": null, "Cross_RS": null, "5 DMA": 262.02, "20 DMA": 260.51, "50 DMA": 262.97, "200 DMA": null, "Dist from 200 DMA(%)": null, "20 > 50": false, "50 > 200": null, "Full Alignment": false, "Trend_Score": 0, "RSI": 61.19, "MACD": -0.06, "MACD_Signal": -0.96, "MACD_Hist": 0.89, "StochRSI_%K": 100.0, "StochRSI_%D": 90.47, "Vol Spike(%)": 98.58, "BB_Upper": 266.96, "BB_Lower": 254.05, "SuperTrend": 255.29, "ST_Direction": "UP", "ADX": 29.27, "macd_state": "BULL", "ATR %": 1.39, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:NIFTYBETA&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/NIFTYBETA/"}, {"Symbol": "NIFTYETF", "Sector": "Unknown", "LTP": 260.5, "Change(%)": 0.4, "52W High": 284.31, "52W Low": 241.51, "Dist 52W H/L(%)": [-8.37, 7.86], "Returns (1W/1M/3M/1Y)": [3.65, 1.95, 3.02, -2.39], "1M Spark": [255.81, 255.43, 256.54, 259.5, 258.56, 258.86, 258.86, 255.23, 253.3, 253.86, 253.65, 253.61, 253.23, 250.59, 251.82, 251.32, 251.18, 251.18, 258.3999938964844, 259.4599914550781, 260.5], "CAGR (%)": 10.12, "RS Rating": 32, "Cross_RS": null, "5 DMA": 256.14, "20 DMA": 255.25, "50 DMA": 257.71, "200 DMA": 268.9, "Dist from 200 DMA(%)": -3.12, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 62.22, "MACD": -0.16, "MACD_Signal": -1.02, "MACD_Hist": 0.86, "StochRSI_%K": 100.0, "StochRSI_%D": 71.85, "Vol Spike(%)": -57.16, "BB_Upper": 261.89, "BB_Lower": 248.62, "SuperTrend": 250.08, "ST_Direction": "UP", "ADX": 25.92, "macd_state": "BULL", "ATR %": 1.3, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:NIFTYETF&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/NIFTYETF/"}, {"Symbol": "NIFTYIETF", "Sector": "Unknown", "LTP": 271.61, "Change(%)": 0.47, "52W High": 295.98, "52W Low": 252.02, "Dist 52W H/L(%)": [-8.23, 7.77], "Returns (1W/1M/3M/1Y)": [3.77, 2.11, 2.97, -2.15], "1M Spark": [266.82, 266.79, 267.75, 270.88, 269.34, 269.51, 269.51, 266.01, 264.14, 264.46, 264.26, 264.01, 263.99, 261.2, 262.52, 261.75, 261.36, 261.36, 269.17999267578125, 270.3399963378906, 271.6099853515625], "CAGR (%)": 10.13, "RS Rating": 42, "Cross_RS": null, "5 DMA": 266.77, "20 DMA": 266.0, "50 DMA": 268.63, "200 DMA": 280.32, "Dist from 200 DMA(%)": -3.11, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 62.31, "MACD": -0.22, "MACD_Signal": -1.12, "MACD_Hist": 0.91, "StochRSI_%K": 100.0, "StochRSI_%D": 70.46, "Vol Spike(%)": 86.9, "BB_Upper": 273.06, "BB_Lower": 258.94, "SuperTrend": 272.84, "ST_Direction": "DOWN", "ADX": 34.58, "macd_state": "BULL", "ATR %": 1.53, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:NIFTYIETF&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/NIFTYIETF/"}, {"Symbol": "PSUBNKBEES", "Sector": "Unknown", "LTP": 97.53, "Change(%)": 1.7, "52W High": 109.87, "52W Low": 75.2, "Dist 52W H/L(%)": [-11.23, 29.69], "Returns (1W/1M/3M/1Y)": [4.02, 9.67, 2.4, 24.54], "1M Spark": [89.24, 89.29, 89.62, 92.15, 91.88, 92.09, 92.09, 91.2, 89.44, 90.11, 91.62, 92.08, 92.28, 91.58, 94.91, 93.76, 92.73, 92.73, 95.95999908447266, 95.9000015258789, 97.52999877929688], "CAGR (%)": 29.79, "RS Rating": 84, "Cross_RS": null, "5 DMA": 94.97, "20 DMA": 92.45, "50 DMA": 93.95, "200 DMA": 92.99, "Dist from 200 DMA(%)": 4.88, "20 > 50": false, "50 > 200": true, "Full Alignment": false, "Trend_Score": 2, "RSI": 64.79, "MACD": 0.78, "MACD_Signal": 0.03, "MACD_Hist": 0.75, "StochRSI_%K": 99.63, "StochRSI_%D": 86.18, "Vol Spike(%)": 99.69, "BB_Upper": 96.9, "BB_Lower": 87.99, "SuperTrend": 88.78, "ST_Direction": "UP", "ADX": 37.56, "macd_state": "BULL", "ATR %": 2.67, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:PSUBNKBEES&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/PSUBNKBEES/"}, {"Symbol": "SBIETFPB", "Sector": "Unknown", "LTP": 283.22, "Change(%)": -0.02, "52W High": 296.53, "52W Low": 245.57, "Dist 52W H/L(%)": [-4.49, 15.33], "Returns (1W/1M/3M/1Y)": [3.87, 7.22, 7.99, 0.52], "1M Spark": [265.39, 265.42, 268.31, 273.84, 272.13, 270.68, 270.68, 268.8, 265.52, 269.43, 267.31, 267.3, 268.53, 266.56, 270.19, 272.67, 274.22, 274.22, 282.739990234375, 283.2699890136719, 283.2200012207031], "CAGR (%)": 9.16, "RS Rating": 53, "Cross_RS": null, "5 DMA": 279.53, "20 DMA": 271.75, "50 DMA": 270.79, "200 DMA": 279.95, "Dist from 200 DMA(%)": 1.17, "20 > 50": true, "50 > 200": false, "Full Alignment": false, "Trend_Score": 2, "RSI": 69.77, "MACD": 3.13, "MACD_Signal": 1.39, "MACD_Hist": 1.73, "StochRSI_%K": 99.85, "StochRSI_%D": 99.92, "Vol Spike(%)": -54.79, "BB_Upper": 282.89, "BB_Lower": 260.62, "SuperTrend": 265.49, "ST_Direction": "UP", "ADX": 38.19, "macd_state": "BULL", "ATR %": 2.22, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:SBIETFPB&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/SBIETFPB/"}, {"Symbol": "SBISILVER", "Sector": "Unknown", "LTP": 240.38, "Change(%)": -0.61, "52W High": 358.24, "52W Low": 104.62, "Dist 52W H/L(%)": [-32.9, 129.76], "Returns (1W/1M/3M/1Y)": [6.25, -7.31, 0.74, 128.98], "1M Spark": [258.89, 257.71, 258.46, 262.15, 257.24, 255.69, 255.69, 255.31, 255.47, 257.57, 252.79, 252.49, 249.42, 233.57, 237.53, 226.25, 226.78, 226.78, 244.86000061035156, 241.85000610351562, 240.3800048828125], "CAGR (%)": 64.43, "RS Rating": 99, "Cross_RS": null, "5 DMA": 236.13, "20 DMA": 247.4, "50 DMA": 245.01, "200 DMA": 208.98, "Dist from 200 DMA(%)": 15.03, "20 > 50": true, "50 > 200": true, "Full Alignment": true, "Trend_Score": 3, "RSI": 46.52, "MACD": -3.57, "MACD_Signal": -2.25, "MACD_Hist": -1.32, "StochRSI_%K": 67.06, "StochRSI_%D": 47.01, "Vol Spike(%)": -51.86, "BB_Upper": 270.99, "BB_Lower": 223.81, "SuperTrend": 249.36, "ST_Direction": "DOWN", "ADX": 25.71, "macd_state": "BEAR", "ATR %": 3.28, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:SBISILVER&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/SBISILVER/"}, {"Symbol": "SETFNIF50", "Sector": "Unknown", "LTP": 258.0, "Change(%)": 0.49, "52W High": 281.21, "52W Low": 239.35, "Dist 52W H/L(%)": [-8.25, 7.79], "Returns (1W/1M/3M/1Y)": [3.76, 1.97, 3.0, -2.19], "1M Spark": [253.38, 253.09, 254.17, 257.13, 256.07, 255.88, 255.88, 252.87, 250.9, 251.54, 250.66, 251.09, 250.84, 248.19, 249.49, 248.65, 248.34, 248.34, 255.72999572753906, 256.7300109863281, 258.0], "CAGR (%)": 10.07, "RS Rating": 37, "Cross_RS": null, "5 DMA": 253.43, "20 DMA": 252.68, "50 DMA": 255.2, "200 DMA": 266.3, "Dist from 200 DMA(%)": -3.12, "20 > 50": false, "50 > 200": false, "Full Alignment": false, "Trend_Score": 0, "RSI": 62.07, "MACD": -0.21, "MACD_Signal": -1.06, "MACD_Hist": 0.85, "StochRSI_%K": 100.0, "StochRSI_%D": 70.47, "Vol Spike(%)": 10.99, "BB_Upper": 259.28, "BB_Lower": 246.08, "SuperTrend": 258.45, "ST_Direction": "DOWN", "ADX": 28.73, "macd_state": "BULL", "ATR %": 1.64, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:SETFNIF50&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/SETFNIF50/"}, {"Symbol": "SETFNN50", "Sector": "Unknown", "LTP": 771.36, "Change(%)": 0.38, "52W High": 771.36, "52W Low": 642.67, "Dist 52W H/L(%)": [0.0, 20.02], "Returns (1W/1M/3M/1Y)": [4.4, 4.43, 12.35, 7.72], "1M Spark": [739.87, 743.76, 744.01, 757.99, 757.47, 767.17, 767.17, 763.22, 748.98, 749.82, 748.28, 749.7, 751.0, 737.84, 747.76, 738.85, 731.19, 731.19, 766.5499877929688, 768.4600219726562, 771.3599853515625], "CAGR (%)": 14.09, "RS Rating": 68, "Cross_RS": null, "5 DMA": 753.75, "20 DMA": 752.09, "50 DMA": 747.58, "200 DMA": 731.53, "Dist from 200 DMA(%)": 5.44, "20 > 50": true, "50 > 200": true, "Full Alignment": true, "Trend_Score": 3, "RSI": 61.76, "MACD": 3.58, "MACD_Signal": 1.89, "MACD_Hist": 1.7, "StochRSI_%K": 89.69, "StochRSI_%D": 57.89, "Vol Spike(%)": -37.46, "BB_Upper": 776.94, "BB_Lower": 727.24, "SuperTrend": 728.35, "ST_Direction": "UP", "ADX": 24.48, "macd_state": "BULL", "ATR %": 2.22, "Risk Profile": "Medium", "tv_widget_url": "https://s.tradingview.com/widgetembed/?symbol=NSE:SETFNN50&interval=D&theme=dark&style=1&timezone=exchange", "ext_link_url": "https://www.screener.in/company/SETFNN50/"}];
+const CC      = {"rsi": "RSI", "fullAlign": "Full Alignment", "volSpike": "Vol Spike(%)", "ret1m": "1M Returns", "dist52w": "Dist from 52W High(%)", "rsRating": "RS Rating", "dist200d": "Dist from 200 DMA(%)", "spark1m": "1M Spark", "trendScore": "Trend_Score"};
+const SECTOR_DATA = [{"Sector": "Unknown", "Count": 20, "Avg_RSI": 55.6, "Pct_Above200": 50.0, "Avg_1M_Ret": 0.7, "Avg_3M_Ret": 3.2, "Avg_RS": 52.6, "Pct_Aligned": 20.0, "Verdict": "Neutral"}];
+const BREADTH_HISTORY = [];
+const CAGR_DATA = {"BANKBEES": {"labels": ["2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 32.5, -32.47, 58.04, -9.2, 64.94, -10.32, 7.74, 41.55, 6.64, 18.82, -4.7, 14.02, 21.81, 13.08, 6.17, 17.67, -3.5], "line": [null, null, null, null, null, null, null, null, null, null, 13.89, 10.19, 16.12, 13.14, 15.65, 10.66, 13.71, 12.46]}, "BANKNIFTY1": {"labels": ["2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, -8.87, 8.56, 40.54, 6.8, 19.23, -5.02, 14.07, 21.62, 13.07, 5.92, 17.78, -90.33], "line": [null, null, null, null, null, null, null, null, null, null, 10.82, 13.7, -10.73]}, "CPSEETF": {"labels": ["2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, -14.07, 17.5, 19.52, -19.12, -3.89, -13.21, 45.78, 28.23, 75.72, 27.53, 7.57, 7.24], "line": [null, null, null, null, null, null, null, null, null, null, 13.05, 15.62, 14.57]}, "FMCGIETF": {"labels": ["2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 19.79, 30.1, 1.24, -0.57, -10.5], "line": [null, null, null, null, null, null]}, "GOLDBEES": {"labels": ["2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 27.62, 29.85, 11.26, -6.44, -9.31, -7.51, 12.55, 2.42, 6.66, 22.95, 27.0, -5.19, 12.8, 14.68, 19.44, 71.81, 12.39], "line": [null, null, null, null, null, null, null, null, null, null, 8.14, 8.09, 4.74, 4.89, 7.04, 10.03, 17.06, 17.05]}, "HDFCGOLD": {"labels": ["2023", "2024", "2025", "2026"], "bar": [null, 19.52, 72.11, 12.43], "line": [null, null, null, null]}, "HNGSNGBEES": {"labels": ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, -1.96, 21.69, 25.07, 2.76, -2.58, 5.04, 39.43, 7.73, 13.38, -1.14, -15.19, -4.69, -11.8, 35.5, 44.47, -0.18], "line": [null, null, null, null, null, null, null, null, null, null, 10.2, 8.62, 6.0, 2.36, 5.23, 9.46, 8.9]}, "INFRABEES": {"labels": ["2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, -39.28, 25.9, -7.77, 25.83, -9.11, -1.97, 34.95, -11.7, 3.43, 12.22, 36.27, 5.89, 38.38, 18.11, 10.71, -1.44], "line": [null, null, null, null, null, null, null, null, null, null, 0.9, 9.39, 7.52, 11.97, 11.26, 13.47, 13.54]}, "IT": {"labels": ["2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, -24.55, 25.53, 24.72, -10.49, -23.03], "line": [null, null, null, null, null, null]}, "ITBEES": {"labels": ["2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 61.57, -24.77, 25.24, 24.84, -10.66, -23.45], "line": [null, null, null, null, null, null, null]}, "JUNIORBEES": {"labels": ["2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 27.27, -31.68, 49.04, 4.38, 43.7, 7.87, 7.45, 45.41, -7.49, 1.02, 15.84, 30.43, 0.77, 26.86, 28.14, 2.46, 4.69], "line": [null, null, null, null, null, null, null, null, null, null, 11.84, 10.79, 18.19, 13.66, 15.9, 14.57, 13.98, 13.69]}, "NIFTYBEES": {"labels": ["2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 18.61, -24.03, 27.4, 6.45, 31.58, -4.27, 3.97, 29.9, 4.82, 13.61, 15.42, 25.97, 5.46, 21.01, 10.36, 11.66, -7.52], "line": [null, null, null, null, null, null, null, null, null, null, 9.49, 9.19, 14.85, 12.71, 14.16, 12.17, 13.91, 12.58]}, "NIFTYBETA": {"labels": ["2025", "2026"], "bar": [null, -7.74], "line": [null, null]}, "NIFTYETF": {"labels": ["2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 19.79, 15.55, 25.6, 5.82, 7.09, 24.41, 11.68, -7.62], "line": [null, null, null, null, null, null, null, null, null]}, "NIFTYIETF": {"labels": ["2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 36.25, -3.41, 8.26, 0.0, 0.0, 49.07, 15.13, 25.85, 5.62, 19.56, 11.67, 11.76, -7.63], "line": [null, null, null, null, null, null, null, null, null, null, 14.54, 12.28, 13.93, 12.14]}, "PSUBNKBEES": {"labels": ["2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 35.71, -40.13, 43.17, -29.56, 71.4, -31.65, 3.68, 25.03, -16.75, -18.95, -31.07, 43.88, 73.16, 32.71, 14.53, 30.49, 2.85], "line": [null, null, null, null, null, null, null, null, null, null, -1.73, -8.17, 0.25, 2.17, 8.85, 4.55, 11.53, 11.45]}, "SBIETFPB": {"labels": ["2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 4.62, 21.31, 14.58, 0.16, 15.98, -2.9], "line": [null, null, null, null, null, null, null]}, "SBISILVER": {"labels": ["2024", "2025", "2026"], "bar": [null, 158.12, 8.6], "line": [null, null, null]}, "SETFNIF50": {"labels": ["2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 4.15, 29.66, 5.14, 13.65, 15.17, 25.61, 5.77, 20.75, 10.36, 11.71, -7.63], "line": [null, null, null, null, null, null, null, null, null, null, 13.9, 12.55]}, "SETFNN50": {"labels": ["2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"], "bar": [null, 8.56, 46.86, -7.98, 1.62, 14.79, 30.86, 1.11, 26.31, 28.56, 2.63, 4.42], "line": [null, null, null, null, null, null, null, null, null, null, 14.2, 13.76]}};
+const WATCHLISTS = {"Nifty 50": ["adanient", "adaniports", "apollohosp", "asianpaint", "axisbank", "bajaj-auto", "bajajfinsv", "bajfinance", "bel", "bhartiartl", "bpcl", "britannia", "cipla", "coalindia", "drreddy", "eichermot", "grasim", "hcltech", "hdfcbank", "hdfclife", "hindalco", "hindunilvr", "icicibank", "indigo", "infy", "itc", "jiofin", "jswsteel", "kotakbank", "lt", "m&m", "maruti", "maxhealth", "nestleind", "ntpc", "ongc", "powergrid", "reliance", "sbilife", "sbin", "shriramfin", "sunpharma", "tataconsum", "tatasteel", "tcs", "techm", "titan", "trent", "ultracemco", "wipro", "^nsei", "^indiavix"], "Nifty 100": ["abb", "adaniensol", "adanient", "adanigreen", "adaniports", "adanipower", "ambujacem", "apollohosp", "asianpaint", "axisbank", "bajaj-auto", "bajajfinsv", "bajajhldng", "bajfinance", "bankbaroda", "bel", "bhartiartl", "boschltd", "bpcl", "britannia", "canbk", "cgpower", "cholafin", "cipla", "coalindia", "cumminsind", "divislab", "dlf", "dmart", "drreddy", "dummyvedl1", "dummyvedl2", "dummyvedl3", "dummyvedl4", "eichermot", "enrin", "eternal", "gail", "godrejcp", "grasim", "hal", "hcltech", "hdfcamc", "hdfcbank", "hdfclife", "hindalco", "hindunilvr", "hindzinc", "hyundai", "icicibank", "indhotel", "indigo", "infy", "ioc", "irfc", "itc", "jindalstel", "jiofin", "jswsteel", "kotakbank", "lodha", "lt", "ltm", "m&m", "maruti", "maxhealth", "mazdock", "motherson", "muthootfin", "nestleind", "ntpc", "ongc", "pfc", "pidilitind", "pnb", "powergrid", "recltd", "reliance", "sbilife", "sbin", "shreecem", "shriramfin", "siemens", "solarinds", "sunpharma", "tatacap", "tataconsum", "tatapower", "tatasteel", "tcs", "techm", "titan", "tmcv", "tmpv", "torntpharm", "trent", "tvsmotor", "ultracemco", "unionbank", "unitdspr", "vbl", "vedl", "wipro", "zyduslife", "^cnx100"], "Nifty 200": ["360one", "abb", "aplapollo", "aubank", "adaniensol", "adanient", "adanigreen", "adaniports", "adanipower", "atgl", "abcapital", "alkem", "ambujacem", "apollohosp", "ashokley", "asianpaint", "astral", "auropharma", "dmart", "axisbank", "bse", "bajaj-auto", "bajfinance", "bajajfinsv", "bajajhldng", "bankbaroda", "bankindia", "bdl", "bel", "bharatforg", "bhel", "bpcl", "bhartiartl", "groww", "biocon", "bluestarco", "boschltd", "britannia", "cgpower", "canbk", "cholafin", "cipla", "coalindia", "cochinship", "coforge", "colpal", "concor", "coromandel", "cumminsind", "dlf", "dabur", "divislab", "dixon", "drreddy", "dummyvedl1", "dummyvedl2", "dummyvedl3", "dummyvedl4", "eichermot", "eternal", "exideind", "nykaa", "federalbnk", "fortis", "gail", "gvt&d", "gmrairport", "glenmark", "godfryphlp", "godrejcp", "godrejprop", "grasim", "hcltech", "hdfcamc", "hdfcbank", "hdfclife", "havells", "heromotoco", "hindalco", "hal", "hindpetro", "hindunilvr", "hindzinc", "powerindia", "hudco", "hyundai", "icicibank", "icicigi", "iciciamc", "idfcfirstb", "itc", "indianb", "indhotel", "ioc", "irctc", "irfc", "ireda", "industower", "indusindbk", "naukri", "infy", "indigo", "jswenergy", "jswsteel", "jindalstel", "jiofin", "jublfood", "kei", "kpittech", "kalyankjil", "kotakbank", "ltf", "lgeindia", "lichsgfin", "ltm", "lt", "lauruslabs", "lenskart", "lodha", "lupin", "mrf", "m&mfin", "m&m", "mankind", "marico", "maruti", "mfsl", "maxhealth", "mazdock", "motilalofs", "mphasis", "mcx", "muthootfin", "nhpc", "nmdc", "ntpc", "nationalum", "nestleind", "oberoirlty", "ongc", "oil", "paytm", "ofss", "policybzr", "piind", "pageind", "patanjali", "persistent", "phoenixltd", "pidilitind", "polycab", "pfc", "powergrid", "premierene", "prestige", "pnb", "recltd", "radico", "rvnl", "reliance", "sbicard", "sbilife", "srf", "motherson", "shreecem", "shriramfin", "enrin", "siemens", "solarinds", "sbin", "sail", "sunpharma", "supremeind", "suzlon", "swiggy", "tvsmotor", "tatacap", "tatacomm", "tcs", "tataconsum", "tataelxsi", "tatainvest", "tmcv", "tmpv", "tatapower", "tatasteel", "techm", "titan", "torntpharm", "trent", "tiindia", "upl", "ultracemco", "unionbank", "unitdspr", "vbl", "vedl", "vmm", "idea", "voltas", "waareeener", "wipro", "yesbank", "zyduslife"], "Nifty 500": ["360one", "3mindia", "aadharhfc", "aartiind", "aavas", "abb", "abbotindia", "abcapital", "abdl", "abfrl", "ablbl", "abrel", "abslamc", "acc", "ace", "acmesolar", "acutaas", "adaniensol", "adanient", "adanigreen", "adaniports", "adanipower", "aegislog", "aegisvopak", "afcons", "affle", "aiaeng", "aiil", "ajantpharm", "alkem", "amber", "ambujacem", "anandrathi", "anantraj", "angelone", "anthem", "anuras", "aparinds", "aplapollo", "apollohosp", "apollotyre", "aptus", "are&m", "asahiindia", "ashokley", "asianpaint", "asterdm", "astral", "atgl", "atherenerg", "atul", "aubank", "auropharma", "awl", "axisbank", "bajaj-auto", "bajajfinsv", "bajajhfl", "bajajhldng", "bajfinance", "balkrisind", "balramchin", "bandhanbnk", "bankbaroda", "bankindia", "bataindia", "bayercrop", "bbtc", "bdl", "bel", "belrise", "beml", "bergepaint", "bharatforg", "bhartiartl", "bhartihexa", "bhel", "bikaji", "biocon", "bls", "bluedart", "bluejet", "bluestarco", "boschltd", "bpcl", "brigade", "britannia", "bse", "bsoft", "cams", "canbk", "canfinhome", "canhlife", "caplipoint", "carboruniv", "cartrade", "castrolind", "ccl", "cdsl", "ceatltd", "cempro", "centralbk", "cesc", "cgcl", "cgpower", "chalet", "chamblfert", "chennpetro", "choicein", "cholafin", "cholahldng", "cipla", "clean", "coalindia", "cochinship", "coforge", "cohance", "colpal", "concor", "concordbio", "coromandel", "cpplus", "craftsman", "creditacc", "crisil", "crompton", "cub", "cumminsind", "cyient", "dabur", "dalbharat", "datapattns", "dcmshriram", "deepakfert", "deepakntr", "delhivery", "devyani", "divislab", "dixon", "dlf", "dmart", "doms", "drreddy", "eclerx", "eichermot", "eidparry", "eihotel", "elecon", "elgiequip", "emamiltd", "emcure", "emmvee", "endurance", "enginersin", "enrin", "eris", "escorts", "eternal", "exideind", "fact", "federalbnk", "fincables", "firstcry", "fivestar", "fluorochem", "forcemot", "fortis", "fsl", "gabriel", "gail", "gallantt", "geship", "gicre", "gillette", "gland", "glaxo", "glenmark", "gmdcltd", "gmrairport", "godfryphlp", "godigit", "godrejcp", "godrejind", "godrejprop", "gpil", "granules", "graphite", "grasim", "gravita", "groww", "grse", "gspl", "gvt&d", "hal", "havells", "hblengine", "hcltech", "hdbfs", "hdfcamc", "hdfcbank", "hdfclife", "heg", "heromotoco", "hext", "hfcl", "hindalco", "hindcopper", "hindpetro", "hindunilvr", "hindzinc", "homefirst", "honasa", "honaut", "hscl", "hudco", "hyundai", "iciciamc", "icicibank", "icicigi", "icicipruli", "idbi", "idea", "idfcfirstb", "iex", "ifci", "igil", "igl", "iifl", "iks", "indgn", "indhotel", "indiacem", "indiamart", "indianb", "indigo", "indusindbk", "industower", "infy", "inoxwind", "intellect", "iob", "ioc", "ipcalab", "irb", "ircon", "irctc", "ireda", "irfc", "itc", "itchotels", "iti", "j&kbank", "jainrec", "jbchepharm", "jbma", "jindalsaw", "jindalstel", "jiofin", "jkcement", "jktyre", "jmfinancil", "jppower", "jsl", "jswcement", "jswdulux", "jswenergy", "jswinfra", "jswsteel", "jublfood", "jublingrea", "jublpharma", "jwl", "jyoticnc", "kajariacer", "kalyankjil", "karurvysya", "kaynes", "kec", "kei", "kfintech", "kims", "kirloseng", "kotakbank", "kpil", "kpittech", "kprmill", "lalpathlab", "latentview", "lauruslabs", "lemontree", "lenskart", "lgeindia", "lichsgfin", "lici", "lindeindia", "lloydsme", "lodha", "lt", "ltf", "ltfoods", "ltm", "ltts", "lupin", "m&m", "m&mfin", "mahabank", "manappuram", "mankind", "mapmyindia", "marico", "maruti", "maxhealth", "mazdock", "mcx", "medanta", "meesho", "mfsl", "mgl", "mindacorp", "mmtc", "motherson", "motilalofs", "mphasis", "mrf", "mrpl", "msumi", "muthootfin", "nam-india", "natcopharm", "nationalum", "naukri", "nava", "navinfluor", "nbcc", "ncc", "nestleind", "netweb", "neulandlab", "newgen", "nh", "nhpc", "niacl", "nivabupa", "nlcindia", "nmdc", "nslnisp", "ntpc", "ntpcgreen", "nuvama", "nuvoco", "nykaa", "oberoirlty", "ofss", "oil", "olaelec", "olectra", "onesource", "ongc", "pageind", "paradeep", "patanjali", "paytm", "pcbl", "persistent", "petronet", "pfc", "pfizer", "pgel", "phoenixltd", "pidilitind", "piind", "pinelabs", "piramalfin", "pnb", "pnbhousing", "policybzr", "polycab", "polymed", "poonawalla", "powergrid", "powerindia", "pplpharma", "premierene", "prestige", "ptcil", "pvrinox", "pwl", "radico", "railtel", "rainbow", "ramcocem", "rblbank", "recltd", "redington", "reliance", "rhim", "rites", "rkforge", "rpower", "rrkabel", "rvnl", "sagility", "sail", "sailife", "sammaancap", "sapphire", "sardaen", "saregama", "sbfc", "sbicard", "sbilife", "sbin", "schaeffler", "schneider", "sci", "shreecem", "shriramfin", "shyammetl", "siemens", "signature", "sjvn", "sobha", "solarinds", "sonacoms", "sonatsoftw", "splpetro", "srf", "starhealth", "sumichem", "sundarmfin", "sunpharma", "suntv", "supremeind", "suzlon", "swancorp", "swiggy", "syngene", "syrma", "taril", "tatacap", "tatachem", "tatacomm", "tataconsum", "tataelxsi", "tatainvest", "tatapower", "tatasteel", "tatatech", "tbotek", "tcs", "techm", "technoe", "tega", "tejasnet", "tennind", "theleela", "thermax", "tiindia", "timken", "titagarh", "titan", "tmcv", "tmpv", "torntpharm", "torntpower", "travelfood", "trent", "trident", "triturbine", "ttml", "tvsmotor", "ubl", "ucobank", "ultracemco", "unionbank", "unitdspr", "unominda", "upl", "urbanco", "ushamart", "utiamc", "vbl", "vedl", "vijaya", "vmm", "voltas", "vtl", "waareeener", "welcorp", "welspunliv", "whirlpool", "wipro", "wockpharma", "yesbank", "zeel", "zensartech", "zentec", "zfcvindia", "zyduslife", "zyduswell", "^crsldx", "^indiavix"], "NSE F&O": ["360one", "abb", "abcapital", "adaniensol", "adanient", "adanigreen", "adaniports", "adanipower", "alkem", "amber", "ambujacem", "angelone", "aplapollo", "apollohosp", "ashokley", "asianpaint", "astral", "aubank", "auropharma", "axisbank", "bajaj-auto", "bajajfinsv", "bajajhldng", "bajfinance", "bandhanbnk", "bankbaroda", "bankindia", "bdl", "bel", "bharatforg", "bhartiartl", "bhel", "biocon", "bluestarco", "boschltd", "bpcl", "britannia", "bse", "cams", "canbk", "cdsl", "cgpower", "cholafin", "cipla", "coalindia", "cochinship", "coforge", "colpal", "concor", "crompton", "cumminsind", "dabur", "dalbharat", "delhivery", "divislab", "dixon", "dlf", "dmart", "drreddy", "eichermot", "eternal", "exideind", "federalbnk", "forcemot", "fortis", "gail", "glenmark", "gmrairport", "godfryphlp", "godrejcp", "godrejprop", "grasim", "hal", "havells", "hcltech", "hdfcamc", "hdfcbank", "hdfclife", "heromotoco", "hindalco", "hindpetro", "hindunilvr", "hindzinc", "hudco", "hyundai", "icicibank", "icicigi", "icicipruli", "idea", "idfcfirstb", "iex", "indhotel", "indianb", "indigo", "indusindbk", "industower", "infy", "inoxwind", "ioc", "ireda", "irfc", "itc", "jindalstel", "jiofin", "jswenergy", "jswsteel", "jublfood", "kalyankjil", "kaynes", "kei", "kfintech", "kotakbank", "kpittech", "lauruslabs", "lichsgfin", "lici", "lodha", "lt", "ltf", "lupin", "m&m", "manappuram", "mankind", "marico", "maruti", "maxhealth", "mazdock", "mcdowell-n", "mcx", "mfsl", "motherson", "motilalofs", "mphasis", "muthootfin", "nam-india", "nationalum", "naukri", "nbcc", "nestleind", "nhpc", "nmdc", "ntpc", "nuvama", "nykaa", "oberoirlty", "ofss", "oil", "ongc", "pageind", "patanjali", "paytm", "persistent", "petronet", "pfc", "pgel", "phoenixltd", "pidilitind", "piind", "pnb", "pnbhousing", "policybzr", "polycab", "powergrid", "powerindia", "pplpharma", "premierene", "prestige", "rblbank", "recltd", "reliance", "rvnl", "sail", "sammaancap", "sbicard", "sbilife", "sbin", "shreecem", "shriramfin", "siemens", "solarinds", "sonacoms", "srf", "sunpharma", "supremeind", "suzlon", "swiggy", "tataconsum", "tataelxsi", "tatapower", "tatasteel", "tatatech", "tcs", "techm", "tiindia", "titan", "tmpv", "torntpharm", "torntpower", "trent", "tvsmotor", "ultracemco", "unionbank", "unominda", "upl", "vbl", "vedl", "vmm", "voltas", "waareeener", "wipro", "yesbank", "zyduslife", "^indiavix"]};
+
+/* === Column Preset Definitions === */ const COLUMN_PRESETS = { 'Overview': ["Symbol", "Company Name", "Sector", "LTP", "Change(%)", "Dist 52W H/L(%)", "Returns (1W/1M/3M/1Y)", "1M Spark", "RS Rating", "Full Alignment", "Trend_Score", "Risk Profile"], 'Momentum': ["Symbol", "Company Name", "LTP", "Change(%)", "RS Rating", "Returns (1W/1M/3M/1Y)", "CAGR (%)", "Full Alignment", "Trend_Score", "RSI", "MACD", "MACD_Hist", "Dist from 200 DMA(%)"], 'Oscillators': ["Symbol", "Company Name", "LTP", "RSI", "MACD", "MACD_Signal", "MACD_Hist", "StochRSI_%K", "StochRSI_%D", "ADX", "SuperTrend", "ST_Direction"], 'Risk': ["Symbol", "Company Name", "LTP", "ATR %", "Beta", "BB_Upper", "BB_Lower", "Vol Spike(%)", "Risk Profile", "SuperTrend", "ST_Direction"], 'MA': ["Symbol", "Company Name", "LTP", "5 DMA", "20 DMA", "50 DMA", "200 DMA", "Dist from 200 DMA(%)", "20 > 50", "50 > 200", "Full Alignment", "Trend_Score"], 'IBD': ["Symbol", "Company Name", "Sector", "LTP", "Change(%)", "RS Rating", "Full Alignment", "Trend_Score", "Dist 52W H/L(%)", "Vol Spike(%)", "Risk Profile"], 'Pullback': ["Symbol", "Company Name", "LTP", "Change(%)", "RSI", "Dist from 200 DMA(%)", "Full Alignment", "StochRSI_%K", "StochRSI_%D", "MACD_Hist", "Trend_Score"], 'All': null }; let activeColumnPreset = 'Overview'; /* Compute default hidden columns from Overview preset */ function getHiddenFromPreset(presetName) { const cols = COLUMN_PRESETS[presetName]; if (!cols) return new Set(); /* 'All' = nothing hidden */ return new Set(DISPLAY_COLUMNS.filter(c => !cols.includes(c))); } /* Init: use localStorage override if present, otherwise apply Overview preset */ let hiddenCols; const savedHidden = localStorage.getItem('hiddenCols'); const savedPreset = localStorage.getItem('activeColumnPreset'); if (savedPreset && COLUMN_PRESETS.hasOwnProperty(savedPreset)) { activeColumnPreset = savedPreset; hiddenCols = getHiddenFromPreset(activeColumnPreset); } else { hiddenCols = getHiddenFromPreset('Overview'); } function highlightActivePreset() { document.querySelectorAll('#preset-bar .preset-badge').forEach(el => { const p = el.getAttribute('data-preset'); if (p === activeColumnPreset) el.classList.add('active'); else if (['Overview','Momentum','Oscillators','Risk','MA','All'].includes(p)) el.classList.remove('active'); }); } function toggleColPanel() { document.getElementById('col-toggle-panel').classList.toggle('show'); } function renderColToggles() { const panel = document.getElementById('col-toggle-panel'); panel.innerHTML = '<strong>Show/Hide Columns</strong><br><br>' + DISPLAY_COLUMNS.map(col => { const checked = hiddenCols.has(col) ? '' : 'checked'; return `<label><input type="checkbox" onchange="toggleCol('${col}')" ${checked}> ${col}</label>`; }).join(''); } function toggleCol(col) { if (hiddenCols.has(col)) hiddenCols.delete(col); else hiddenCols.add(col); /* Manual toggle clears preset highlight */ activeColumnPreset = ''; localStorage.removeItem('activeColumnPreset'); highlightActivePreset(); buildHeader(); render(); } function exportCSV() { const q = document.getElementById('search').value.trim().toLowerCase(); const sector = document.getElementById('sector-filter').value; const wlStr = document.getElementById('watchlist-filter').value; const wl = wlStr ? wlStr.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean) : []; const selIdx = document.getElementById('index-filter').value; const preWl = selIdx && typeof WATCHLISTS !== 'undefined' ? (WATCHLISTS[selIdx] || []) : []; let filtered = DATA.filter(row => { if (window.presetFilter && !window.presetFilter(row)) return false; const sym = String(row[COLUMNS[0]] ?? '').toLowerCase(); const nm = String(row['Company Name'] ?? '').toLowerCase(); const rowSector = row['Sector'] ?? ''; const matchQ = !q || sym.includes(q) || nm.includes(q); const matchS = !sector || rowSector === sector; const matchWl = wl.length === 0 || wl.includes(sym); const matchPreWl = !selIdx || preWl.includes(sym); return matchQ && matchS && matchWl && matchPreWl; }); const sorted = sortData(filtered); const visCols = EXPORT_COLUMNS.filter(c => !hiddenCols.has(c)); let csv = []; csv.push(visCols.join(',')); sorted.forEach(row => { const r = visCols.map(c => { let v = row[c]; if (typeof v === 'boolean') v = v ? 'Yes' : 'No'; if (Array.isArray(v)) v = v.join(';'); if (typeof v === 'string') return `"${v.replace(/"/g, '""')}"`; return v ?? ''; }); csv.push(r.join(',')); }); const blob = new Blob([csv.join('\n')], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${PROJECT_NAME.replace(/ /g, '_')}_filtered_${new Date().toISOString().split('T')[0]}.csv`; a.click(); } function applyPreset(preset) { /* Column presets */ if (COLUMN_PRESETS.hasOwnProperty(preset)) { hiddenCols = getHiddenFromPreset(preset); activeColumnPreset = preset; localStorage.setItem('activeColumnPreset', preset); highlightActivePreset(); renderColToggles(); buildHeader(); render(); return; } /* Row-filter presets */ if (preset === 'IBD') { window.presetFilter = (row) => row[CC.rsRating] >= 80 && (row[CC.fullAlign] === true || row[CC.fullAlign] === 'Yes') && row[CC.rsi] >= 50 && row[CC.rsi] <= 70; } else if (preset === 'Pullback') { window.presetFilter = (row) => row[CC.dist200d] > 0 && row[CC.rsi] < 40 && row[CC.dist52w] < -10; } else if (preset === 'Clear') { window.presetFilter = null; document.getElementById('search').value = ''; document.getElementById('sector-filter').value = ''; document.getElementById('watchlist-filter').value = ''; } /* Highlight filter presets */ document.querySelectorAll('#preset-bar .preset-badge').forEach(el => { const p = el.getAttribute('data-preset'); if (['IBD','Pullback','Clear'].includes(p)) { el.classList.toggle('active', p === preset && preset !== 'Clear'); } }); render(); } const numericCols = new Set(); if(typeof DATA !== 'undefined') { DATA.forEach(row => { COLUMNS.forEach(col => { const v = row[col]; if (typeof v === 'number' || (Array.isArray(v) && v.length > 0)) numericCols.add(col); }); }); } const FREEZE_N = 1; let FREEZE_W = [200]; let FREEZE_LEFT = [0]; function updateFrozenLayout() { const ths = document.querySelectorAll('#tbl-head th.frozen'); if (ths.length >= FREEZE_N) { for (let i = 0; i < FREEZE_N; i++) { FREEZE_W[i] = ths[i].offsetWidth; FREEZE_LEFT[i] = i === 0 ? 0 : FREEZE_LEFT[i-1] + FREEZE_W[i-1]; ths[i].style.left = `${FREEZE_LEFT[i]}px`; } document.querySelectorAll('#tbl-body tr').forEach(tr => { const tds = tr.querySelectorAll('td.frozen'); for (let i = 0; i < FREEZE_N; i++) { if (tds[i]) tds[i].style.left = `${FREEZE_LEFT[i]}px`; } }); } } function renderCell(col, val, colIdx, rowSymbol, row) { const isFrozen = colIdx < FREEZE_N; const isLastFreeze = colIdx === FREEZE_N - 1; const frozenCls = isFrozen ? ` frozen${isLastFreeze ? ' frozen-last' : ''}` : ''; const frozenStyle = isFrozen ? ` style="left:${FREEZE_LEFT[colIdx]}px"` : ''; const wrap = (inner, extraCls='') => { let finalCls = (extraCls + frozenCls).trim(); let onclickAttr = ''; let a11y = ''; if (col === 'Symbol') { a11y = ` tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"`; finalCls += ' clickable-symbol'; onclickAttr = ` onclick="openChartDrawer('${rowSymbol}', '${row['tv_widget_url']}', false)" title="Slide out quick chart preview"`; } else if (col === 'Company Name') { a11y = ` tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"`; finalCls += ' clickable-company'; onclickAttr = ` onclick="openChartDrawer('${rowSymbol}', '${row['ext_link_url']}', true)" title="Open full chart/screener in new tab"`; } return `<td class="${finalCls}"${frozenStyle}${onclickAttr}${a11y}>${inner}</td>`; }; if (val === null || val === undefined) return wrap('—'); if (col === 'RS Rating' || col === 'Cross_RS') { const n = Number(val); if (isNaN(n)) return wrap('—'); const bc = n >= 80 ? 'rs-hi' : n >= 50 ? 'rs-mid' : 'rs-lo'; return wrap(`<span class="rs-badge ${bc}">${n}</span>`); } if (col === CC.fullAlign || col === '20 > 50' || col === '50 > 200') { const isYes = val === true || val === 'Yes'; const bc = isYes ? 'badge-yes' : 'badge-no'; const text = isYes ? 'Yes' : 'No'; return wrap(`<span class="badge ${bc}">${text}</span>`); } if (col === CC.rsi) { const n = Number(val); return wrap(val, n > 70 ? 'c-bear' : n < 30 ? 'c-bull' : ''); } if (col === 'Returns (1W/1M/3M/1Y)') { const rets = val; if(!Array.isArray(rets)) return wrap('—'); const badges = rets.map(n => { if(n===null) return '<span class="ret-badge">—</span>'; const c = n > 0 ? 'c-bull' : n < 0 ? 'c-bear' : ''; return `<span class="ret-badge ${c}">${(n>0?'+':'')+n}%</span>`; }); return wrap(`<div class="returns-cell">${badges.join('')}</div>`); } if (col === 'CAGR (%)') { const n = Number(val); let bc = 'rs-mid'; if (n >= 20) bc = 'rs-hi'; else if (n <= 10) bc = 'rs-lo'; return wrap(`<span class="rs-badge ${bc}">${n}%</span>`); } if ([CC.ret1m, '1W Returns', '3M Returns', '1Yr Returns', 'Change(%)', 'MACD_Hist'].includes(col)) { const n = Number(val); return wrap((n > 0 ? '+' : '') + val, n > 0 ? 'c-pos' : n < 0 ? 'c-neg' : ''); } if (col === CC.volSpike) { const n = Number(val); return wrap((n > 0 ? '+' : '') + val, n > 100 ? 'c-warn' : n < -50 ? 'c-bear' : ''); } if (col === CC.spark1m) { if (!Array.isArray(val) || val.length === 0) return wrap('—'); const min = Math.min(...val), max = Math.max(...val); const range = max - min || 1; const width = 90, height = 28; const pts = val.map((d, i) => { const x = (i / (val.length - 1)) * width; const y = height - ((d - min) / range) * height; return `${x.toFixed(1)},${y.toFixed(1)}`; }).join(' '); const isPos = val[val.length - 1] >= val[0]; const color = isPos ? '#4ade80' : '#f87171'; const midY = height/2; const svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow:visible; vertical-align: middle;"> <line x1="0" y1="${midY}" x2="${width}" y2="${midY}" stroke="var(--muted)" stroke-dasharray="2,2" stroke-width="1" opacity="0.5"/> <polyline fill="none" stroke="${color}" stroke-width="2" points="${pts}" /> </svg>`; return wrap(svg); } if (col === CC.dist200d) { const n = Number(val); return wrap((n > 0 ? '+' : '') + val, n > 0 ? 'c-pos' : n < 0 ? 'c-neg' : ''); } if (col === 'ATR %') { const n = Number(val); return wrap(val, n > 3 ? 'c-warn' : ''); } if (col === 'Trend_Score' || col === 'Trend Score') { const n = Number(val); if (isNaN(n)) return wrap(val); const bullets = '🟢'.repeat(n) + '⚪'.repeat(3 - n); return wrap(`<span title="Score: ${n}/3">${bullets}</span>`); } if (col === 'Dist 52W H/L(%)') { if (!Array.isArray(val) || val.length !== 2) return wrap('—'); const [dHi, dLo] = val; const hiBadge = dHi === null ? '<span class="ret-badge">—</span>' : `<span class="ret-badge ${dHi < 0 ? 'c-bear' : ''}">${dHi}%</span>`; const loBadge = dLo === null ? '<span class="ret-badge">—</span>' : `<span class="ret-badge ${dLo > 0 ? 'c-bull' : ''}">+${dLo}%</span>`; return wrap(`<div class="returns-cell">${hiBadge} / ${loBadge}</div>`); } if (col === 'MACD') { const macdState = row['macd_state']; const badge = macdState === 'BULL' ? `<span class="macd-bull">▲</span>` : (macdState === 'BEAR' ? `<span class="macd-bear">▼</span>` : ''); return wrap(`${val} ${badge}`); } if (col === 'Risk Profile') { const bc = val === 'High' ? 'rs-lo' : val === 'Low' ? 'rs-hi' : 'rs-mid'; return wrap(`<span class="rs-badge ${bc}">${val}</span>`); } if (col === 'StochRSI_%K' || col === 'StochRSI_%D') { const n = Number(val); return wrap(isNaN(n) ? '—' : n.toFixed(1), n > 80 ? 'c-bear' : n < 20 ? 'c-bull' : ''); } return wrap(val !== null ? val : '—'); } let sortCol = null, sortDir = 1, sortSubIdx = null; function sortData(data) { if (!sortCol) return data; const isNum = numericCols.has(sortCol) || sortCol === 'Dist 52W H/L(%)'; return [...data].sort((a, b) => { let av = a[sortCol], bv = b[sortCol]; if (av === null || av === undefined) return 1; if (bv === null || bv === undefined) return -1; if (Array.isArray(av)) av = typeof sortSubIdx === 'number' ? av[sortSubIdx] : (sortCol === 'Returns (1W/1M/3M/1Y)' ? av[1] : av[av.length - 1]); if (Array.isArray(bv)) bv = typeof sortSubIdx === 'number' ? bv[sortSubIdx] : (sortCol === 'Returns (1W/1M/3M/1Y)' ? bv[1] : bv[bv.length - 1]); if (isNum) { av = Number(av); bv = Number(bv); } else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); } return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir; }); } function render() { const q = document.getElementById('search').value.trim().toLowerCase(); const sector = document.getElementById('sector-filter').value; const wlStr = document.getElementById('watchlist-filter').value; const wl = wlStr ? wlStr.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean) : []; const selIdx = document.getElementById('index-filter').value; const preWl = selIdx && typeof WATCHLISTS !== 'undefined' ? (WATCHLISTS[selIdx] || []) : []; const body = document.getElementById('tbl-body'); const cntEl = document.getElementById('row-count'); let filtered = DATA.filter(row => { if (window.presetFilter && !window.presetFilter(row)) return false; const sym = String(row[COLUMNS[0]] ?? '').toLowerCase(); const nm = String(row['Company Name'] ?? '').toLowerCase(); const rowSector = row['Sector'] ?? ''; const matchQ = !q || sym.includes(q) || nm.includes(q); const matchS = !sector || rowSector === sector; const matchWl = wl.length === 0 || wl.includes(sym); const matchPreWl = !selIdx || preWl.includes(sym); return matchQ && matchS && matchWl && matchPreWl; }); const sorted = sortData(filtered); cntEl.textContent = `${sorted.length} / ${DATA.length} stocks`; const frag = document.createDocumentFragment(); const visCols = DISPLAY_COLUMNS.filter(c => !hiddenCols.has(c)); sorted.forEach(row => { const tr = document.createElement('tr'); const sym = String(row[COLUMNS[0]] ?? '').toLowerCase(); if (wl.length > 0 && wl.includes(sym)) { tr.classList.add('watchlist-row'); } else if (row[CC.fullAlign] === true || row[CC.fullAlign] === 'Yes') { tr.classList.add('aligned-row'); } else { tr.classList.add('not-aligned-row'); } tr.innerHTML = visCols.map((col, i) => renderCell(col, row[col], i, row[COLUMNS[0]], row)).join(''); frag.appendChild(tr); }); body.replaceChildren(frag); requestAnimationFrame(updateFrozenLayout); } const TOOLTIPS = { "Symbol": "Ticker Symbol", "Company Name": "Company Name", "Dist 52W Hi(%)": "Distance from 52-Week High in %", "RS Rating": "Local Relative Strength (percentile within THIS universe)", "Cross_RS": "Market-Wide Relative Strength (percentile vs ALL NSE stocks)", "Returns (1W/1M/3M/1Y)": "Historical Returns", "Full Alignment": "Is 20 DMA > 50 DMA > 200 DMA?", "Avg Vol Spike": "Recent volume vs 50-day average", "ATR %": "Average True Range as a % of Last Traded Price", "MACD": "Moving Average Convergence Divergence", "MACD_Signal": "MACD Signal Line", "MACD_Hist": "MACD Histogram (MACD - Signal)", "StochRSI_%K": "Stochastic RSI %K — >80 Overbought, <20 Oversold", "StochRSI_%D": "Stochastic RSI %D (Signal line of %K)" }; function buildHeader() { const head = document.getElementById('tbl-head'); const visCols = DISPLAY_COLUMNS.filter(c => !hiddenCols.has(c)); head.innerHTML = '<tr>' + visCols.map((col, i) => { const isFrozen = i < FREEZE_N; const isLast = i === FREEZE_N - 1; let cls = isFrozen ? `frozen${isLast ? ' frozen-last' : ''}` : ''; const title = TOOLTIPS[col] || col; return `<th scope="col" aria-sort="none" data-col="${col}" class="${cls}" title="${title}"> ${col}<span class="sort-arrow"></span> </th>`; }).join('') + '</tr>'; head.querySelectorAll('th').forEach(th => { th.addEventListener('click', () => { const col = th.dataset.col; if (col === 'Dist 52W H/L(%)') { if (sortCol === col) { if (sortSubIdx === 0 && sortDir === -1) sortDir = 1; else if (sortSubIdx === 0 && sortDir === 1) { sortSubIdx = 1; sortDir = -1; } else if (sortSubIdx === 1 && sortDir === -1) sortDir = 1; else { sortCol = null; sortSubIdx = null; sortDir = 1; } } else { sortCol = col; sortSubIdx = 0; sortDir = -1; } } else { if (sortCol === col) { sortDir *= -1; } else { sortCol = col; sortDir = -1; sortSubIdx = null; } } head.querySelectorAll('th').forEach(t => { t.classList.remove('sort-asc','sort-desc','sort-hi','sort-lo'); t.setAttribute('aria-sort', 'none'); }); if (sortCol) { th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc'); if (sortCol === 'Dist 52W H/L(%)') th.classList.add(sortSubIdx === 0 ? 'sort-hi' : 'sort-lo'); th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending'); } render(); }); }); } function switchTab(tabId) { document.getElementById('tab-screener').classList.toggle('active', tabId === 'screener'); document.getElementById('tab-heatmap').classList.toggle('active', tabId === 'heatmap'); document.getElementById('tab-sector').classList.toggle('active', tabId === 'sector'); document.getElementById('wrap-screener').style.display = tabId === 'screener' ? 'block' : 'none'; document.getElementById('controls-screener').style.display = tabId === 'screener' ? 'flex' : 'none'; document.getElementById('wrap-heatmap').style.display = tabId === 'heatmap' ? 'block' : 'none'; document.getElementById('wrap-sector').style.display = tabId === 'sector' ? 'block' : 'none'; if (tabId === 'heatmap' && !window.heatmapRendered) { renderStockHeatmap(); window.heatmapRendered = true; } if (tabId === 'sector' && !window.sectorRendered) { renderSectorTable(); window.sectorRendered = true; } } let sortSectorCol = 'Avg_RS', sortSectorDir = -1; const sectorCols = ['Sector', 'Verdict', 'Count', 'Avg_RSI', 'Pct_Above200', 'Avg_1M_Ret', 'Avg_3M_Ret', 'Avg_RS', 'Pct_Aligned']; function renderStockHeatmap() { const container = document.getElementById('stock-heatmap-container'); if (!container) return; let validData = DATA.filter(d => d['CAGR (%)'] !== null && d['CAGR (%)'] !== undefined); validData.sort((a, b) => b['CAGR (%)'] - a['CAGR (%)']); if (validData.length === 0) { container.innerHTML = '<div style="color:var(--muted);">No CAGR data available</div>'; return; } const minCagr = validData[validData.length - 1]['CAGR (%)']; const maxCagr = validData[0]['CAGR (%)']; const range = maxCagr - minCagr || 1; const frag = document.createDocumentFragment(); const endDate = new Date(GENERATED_DATE || Date.now()); const startDate = new Date(endDate); startDate.setFullYear(endDate.getFullYear() - 5); const dateOpts = { year: 'numeric', month: 'short', day: 'numeric' }; const headerDiv = document.createElement('div'); headerDiv.style.gridColumn = '1 / -1'; headerDiv.style.color = 'var(--muted)'; headerDiv.style.fontSize = '14px'; headerDiv.style.paddingBottom = '10px'; headerDiv.innerHTML = `<em>Calculation Period: ${startDate.toLocaleDateString('en-US', dateOpts)} to ${endDate.toLocaleDateString('en-US', dateOpts)} (5-Year CAGR)</em>`; frag.appendChild(headerDiv); validData.forEach(row => { const sym = row['Symbol']; const cagr = row['CAGR (%)']; const div = document.createElement('div'); div.style.border = '1px solid rgba(255,255,255,0.05)'; div.style.borderRadius = '6px'; div.style.padding = '14px 8px'; div.style.textAlign = 'center'; div.style.cursor = 'pointer'; div.style.display = 'flex'; div.style.flexDirection = 'column'; div.style.gap = '8px'; div.style.transition = 'transform 0.2s'; let bg = ''; if (cagr > 0) { const maxPos = Math.max(maxCagr, 0.01); const intensity = Math.min(cagr / maxPos, 1); const lightness = 20 + (intensity * 30); bg = `hsl(120, 70%, ${lightness}%)`; } else if (cagr < 0) { const minNeg = Math.min(minCagr, -0.01); const intensity = Math.min(cagr / minNeg, 1); const lightness = 20 + (intensity * 30); bg = `hsl(0, 70%, ${lightness}%)`; } else { bg = `hsl(0, 0%, 20%)`; } div.style.background = bg; div.onmouseover = () => div.style.transform = 'translateY(-2px)'; div.onmouseout = () => div.style.transform = 'translateY(0)'; if (typeof CAGR_DATA !== 'undefined' && CAGR_DATA[sym] && CAGR_DATA[sym].labels) { div.onclick = () => openCagrDrawer(sym); div.title = 'Click to view 10-Year Rolling CAGR'; } else { div.onclick = () => openChartDrawer(sym, row['tv_widget_url'], false); div.title = 'Click to view Chart'; } div.innerHTML = ` <div style="font-weight: 700; font-size: 14px; color: #fff;">${sym}</div> <div style="font-size: 14px; color: rgba(255,255,255,0.9);">${cagr.toFixed(2)}%</div> `; frag.appendChild(div); }); container.replaceChildren(frag); } function renderSectorTable() { const head = document.getElementById('tbl-head-sector'); const body = document.getElementById('tbl-body-sector'); head.innerHTML = '<tr>' + sectorCols.map(col => { let cls = ''; if (sortSectorCol === col) cls = sortSectorDir === 1 ? 'sort-asc' : 'sort-desc'; let label = col.replace(/_/g, ' '); if (col.startsWith('Pct')) label += ' (%)'; return `<th scope="col" aria-sort="none" data-col="${col}" class="${cls}" onclick="sortSector('${col}')"> ${label}<span class="sort-arrow"></span> </th>`; }).join('') + '</tr>'; let sorted = [...SECTOR_DATA].sort((a, b) => { let av = a[sortSectorCol], bv = b[sortSectorCol]; if (av === null || av === undefined) return 1; if (bv === null || bv === undefined) return -1; return (av < bv ? -1 : av > bv ? 1 : 0) * sortSectorDir; }); const frag = document.createDocumentFragment(); sorted.forEach(row => { const tr = document.createElement('tr'); tr.style.cursor = 'pointer'; tr.addEventListener('click', () => { document.getElementById('sector-filter').value = row['Sector']; window.presetFilter = null; document.getElementById('search').value = ''; document.getElementById('watchlist-filter').value = ''; switchTab('screener'); render(); }); tr.innerHTML = sectorCols.map(col => { let val = row[col]; let formatted = val; let cls = ''; if (val === null || val === undefined) formatted = '—'; else if (col === 'Avg_RSI') { cls = val > 65 ? 'c-bear' : val < 45 ? 'c-bull' : ''; } else if (col === 'Avg_RS') { const bc = val >= 70 ? 'rs-hi' : val <= 30 ? 'rs-lo' : 'rs-mid'; formatted = `<span class="rs-badge ${bc}">${val}</span>`; } else if (col === 'Verdict') { const bc = val === 'Leading' ? 'rs-hi' : val === 'Weak' ? 'rs-lo' : 'rs-mid'; formatted = `<span class="rs-badge ${bc}">${val}</span>`; } else if (col.includes('Ret')) { cls = val > 0 ? 'c-pos' : val < 0 ? 'c-neg' : ''; formatted = (val > 0 ? '+' : '') + val; } else if (col.startsWith('Pct')) { cls = val >= 50 ? 'c-pos' : 'c-neg'; const bc = val >= 50 ? 'var(--bull)' : 'var(--bear)'; formatted = `${val}% <div class="sector-bar-bg"><div class="sector-bar-fg" style="width: ${val}%; background: ${bc};"></div></div>`; } return `<td class="${cls}">${formatted}</td>`; }).join(''); frag.appendChild(tr); }); body.replaceChildren(frag); if (typeof BENCHMARK !== 'undefined' && BENCHMARK && CAGR_DATA[BENCHMARK]) { const wrapSector = document.getElementById('wrap-sector'); let benchBtn = document.getElementById('bench-cagr-btn'); if (!benchBtn) { benchBtn = document.createElement('button'); benchBtn.id = 'bench-cagr-btn'; benchBtn.className = 'control-btn'; benchBtn.style.marginTop = '15px'; benchBtn.style.background = 'var(--accent)'; benchBtn.style.color = '#fff'; benchBtn.textContent = '📈 View Benchmark (' + BENCHMARK + ') Rolling CAGR'; benchBtn.onclick = () => openCagrDrawer(BENCHMARK); wrapSector.appendChild(benchBtn); } } } function sortSector(col) { if (sortSectorCol === col) sortSectorDir *= -1; else { sortSectorCol = col; sortSectorDir = -1; } renderSectorTable(); } function openChartDrawer(symbol, urlTemplate, isExternal) { if (isExternal || (urlTemplate && urlTemplate.includes('screener.in'))) { window.open(urlTemplate, '_blank'); return; } if (!isExternal && urlTemplate && (urlTemplate.includes('symbol=NSE:') || urlTemplate.includes('symbol=BSE:'))) { const match = urlTemplate.match(/symbol=([^&]+)/); if (match) { window.open(`https://www.tradingview.com/chart/?symbol=${match[1]}`, '_blank'); return; } } const drawer = document.getElementById('chart-drawer'); const title = document.getElementById('drawer-symbol-title'); const iframe = document.getElementById('tv-chart-iframe'); const warning = document.getElementById('nse-warning-container'); const warningBtn = document.getElementById('nse-warning-btn'); title.textContent = `${symbol} — Daily Chart`; if (warningBtn) { let cleanSym = symbol.replace('.NS', '').replace('BAJAJ-AUTO', 'BAJAJ_AUTO').replace('M&M', 'M_M'); if (cleanSym === 'NIFTY_50') cleanSym = 'NIFTY'; const ex = typeof EXCHANGE !== 'undefined' ? EXCHANGE : 'NASDAQ'; warningBtn.onclick = () => window.open(`https://www.tradingview.com/chart/?symbol=${ex}:${cleanSym}`, '_blank'); } if (urlTemplate) { warning.style.display = "none"; iframe.style.display = "block"; iframe.src = urlTemplate; } else { warning.style.display = "flex"; iframe.style.display = "none"; } drawer.classList.add('open'); } function closeDrawer() { const drawer = document.getElementById('chart-drawer'); const iframe = document.getElementById('tv-chart-iframe'); const warning = document.getElementById('nse-warning-container'); drawer.classList.remove('open'); iframe.src = ""; warning.style.display = "none"; } let cagrChartInstance = null; function openCagrDrawer(symbol) { const data = CAGR_DATA[symbol]; if (!data || data.length === 0) { alert("No CAGR data available for " + symbol); return; } const drawer = document.getElementById('cagr-drawer'); const title = document.getElementById('cagr-drawer-title'); const targetTitle = `${symbol} — Annual Returns & 10-Year CAGR`; if (drawer.classList.contains('open') && title.textContent === targetTitle) { closeCagrDrawer(); return; } title.textContent = targetTitle; drawer.classList.add('open'); const ctx = document.getElementById('cagrCanvas').getContext('2d'); const labels = data.labels || []; const barValues = data.bar || []; const lineValues = data.line || []; if (cagrChartInstance) { cagrChartInstance.destroy(); } cagrChartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [ { type: 'line', label: '10-Year Rolling CAGR (%)', data: lineValues, borderColor: '#f59e0b', borderWidth: 3, pointRadius: 2, pointHoverRadius: 5, fill: false, tension: 0.3, yAxisID: 'y' }, { type: 'bar', label: 'Annual Return (%)', data: barValues, backgroundColor: barValues.map(v => v >= 0 ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'), borderColor: barValues.map(v => v >= 0 ? '#16a34a' : '#dc2626'), borderWidth: 1, yAxisID: 'y' } ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index', }, plugins: { legend: { display: true, labels: { color: '#94a3b8' } }, tooltip: { callbacks: { label: function(context) { return context.parsed.y + '%'; } } } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', callback: function(value) { return value + '%'; } } } } } }); } function closeCagrDrawer() { const drawer = document.getElementById('cagr-drawer'); drawer.classList.remove('open'); } const sectors = [...new Set(DATA.map(d => d.Sector))].filter(Boolean).sort(); const sectorFilter = document.getElementById('sector-filter'); if (sectors.length > 0) { sectors.forEach(s => { const opt = document.createElement('option'); opt.value = s; opt.textContent = s; sectorFilter.appendChild(opt); }); sectorFilter.addEventListener('change', () => { window.presetFilter = null; render(); }); } else { sectorFilter.style.display = 'none'; } const indexFilter = document.getElementById('index-filter'); if (indexFilter && typeof WATCHLISTS !== 'undefined') { Object.keys(WATCHLISTS).sort().forEach(idxName => { const opt = document.createElement('option'); opt.value = idxName; opt.textContent = idxName; indexFilter.appendChild(opt); }); indexFilter.addEventListener('change', () => { window.presetFilter = null; document.getElementById('watchlist-filter').value = ''; render(); }); } if(typeof COLUMNS !== 'undefined') { highlightActivePreset(); renderColToggles(); buildHeader(); render(); } let searchT; const si = document.getElementById('search'); if (si) { si.addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(render, 150); }); } const wi = document.getElementById('watchlist-filter'); if (wi) { wi.addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(render, 150); }); } if (typeof BREADTH_HISTORY !== 'undefined' && BREADTH_HISTORY.length > 1) { const container = document.getElementById('trend-sparkline-container'); if (container) { const vals = BREADTH_HISTORY; const min = Math.min(...vals), max = Math.max(...vals); const range = max - min || 1; const width = 120, height = 30; const pts = vals.map((d, i) => { const x = (i / (vals.length - 1)) * width; const y = height - ((d - min) / range) * height; return `${x.toFixed(1)},${y.toFixed(1)}`; }).join(' '); const isPos = vals[vals.length - 1] >= vals[0]; const color = isPos ? 'var(--bull)' : 'var(--bear)'; const tooltipText = `Last ${vals.length} days: ${vals.join('%, ')}%`; const svg = `<div class="trend-sparkline-title" title="${tooltipText}">Alignment Trend (${vals.length}D)</div> <svg width="${width}" height="${height}" viewBox="-2 -2 ${width+4} ${height+4}" style="overflow:visible;"> <polyline fill="none" stroke="${color}" stroke-width="2" points="${pts}" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="${width}" cy="${height - ((vals[vals.length - 1] - min) / range) * height}" r="3" fill="${color}" /> </svg>`; container.innerHTML = svg; } } function init() { renderColToggles(); buildHeader(); render(); } init(); document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (typeof closeDrawer === 'function') closeDrawer(); if (typeof closeCagrDrawer === 'function') closeCagrDrawer(); const panel = document.getElementById('col-toggle-panel'); if (panel && panel.classList.contains('show')) { panel.classList.remove('show'); } } });
+</script>
+</body>
+</html>
